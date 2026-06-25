@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: lexis-legal-intelligence
+    env: static
+    buildCommand: ""
+    staticPublishPath: .
