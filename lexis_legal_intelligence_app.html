@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LexBrief — Legal Intelligence</title>
+<style>
+:root {
+  --ink:#0D1117; --ink2:#3A3F4A; --ink3:#6B7280;
+  --rule:#E2E4E8; --surface:#F7F8FA; --white:#ffffff;
+  --accent:#1A3A5C; --accent-light:#EBF0F7;
+  --gold:#B8860B; --gold-light:#FDF8EC;
+  --tag-ip:#EEF2FF; --tag-ip-t:#3730A3;
+  --tag-reg:#FFF7ED; --tag-reg-t:#9A3412;
+  --tag-lit:#F0FDF4; --tag-lit-t:#166534;
+  --tag-corp:#FDF4FF; --tag-corp-t:#6B21A8;
+  --tag-biz:#ECFDF5; --tag-biz-t:#065F46;
+  --radius:8px;
+  --shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Georgia,serif;background:var(--surface);color:var(--ink);min-height:100vh}
+.app{display:flex;flex-direction:column;min-height:100vh;max-width:920px;margin:0 auto}
+
+/* ── Header ── */
+.header{background:var(--accent);color:#fff;padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;height:56px;flex-shrink:0}
+.logo-mark{width:28px;height:28px;border:1.5px solid rgba(255,255,255,.6);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;letter-spacing:-.5px}
+.logo-text{font-size:15px;font-weight:400;letter-spacing:.04em;color:rgba(255,255,255,.95)}
+.logo-sub{font-size:10px;color:rgba(255,255,255,.5);letter-spacing:.08em;text-transform:uppercase;font-family:Arial,sans-serif}
+.header-date{font-size:12px;color:rgba(255,255,255,.55);font-family:Arial,sans-serif}
+
+/* ── Nav ── */
+.nav{display:flex;background:var(--white);border-bottom:1px solid var(--rule);padding:0 1.5rem}
+.nav-btn{font-family:Arial,sans-serif;font-size:13px;font-weight:500;color:var(--ink3);padding:14px 18px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;letter-spacing:.02em;display:flex;align-items:center;gap:6px;transition:color .15s;white-space:nowrap}
+.nav-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+.nav-btn:hover:not(.active){color:var(--ink2)}
+
+/* ── Layout ── */
+.main{flex:1;padding:1.5rem;display:flex;flex-direction:column;gap:1.25rem}
+.panel{display:none;flex-direction:column;gap:1.25rem}
+.panel.active{display:flex}
+
+/* ── Cards ── */
+.card{background:var(--white);border:1px solid var(--rule);border-radius:var(--radius);box-shadow:var(--shadow)}
+.card-head{padding:1rem 1.25rem;border-bottom:1px solid var(--rule);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.card-title{font-size:13px;font-weight:600;color:var(--ink2);text-transform:uppercase;letter-spacing:.06em;font-family:Arial,sans-serif}
+.card-body{padding:1.25rem}
+
+/* ── Pills ── */
+.topic-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.topic-pill{font-family:Arial,sans-serif;font-size:12px;font-weight:500;padding:5px 12px;border-radius:100px;cursor:pointer;border:1.5px solid transparent;transition:all .15s;user-select:none}
+.topic-pill[data-topic="ip"]  {background:var(--tag-ip);  color:var(--tag-ip-t);  border-color:var(--tag-ip)}
+.topic-pill[data-topic="reg"] {background:var(--tag-reg); color:var(--tag-reg-t); border-color:var(--tag-reg)}
+.topic-pill[data-topic="lit"] {background:var(--tag-lit); color:var(--tag-lit-t); border-color:var(--tag-lit)}
+.topic-pill[data-topic="corp"]{background:var(--tag-corp);color:var(--tag-corp-t);border-color:var(--tag-corp)}
+.topic-pill.biz-pill{background:var(--tag-biz);color:var(--tag-biz-t);border-color:#A7F3D0}
+.topic-pill.off{background:var(--surface);color:var(--ink3);border-color:var(--rule)}
+
+/* ── Chips ── */
+.chip-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chip{display:inline-flex;align-items:center;gap:5px;font-family:Arial,sans-serif;font-size:12px;font-weight:500;padding:4px 10px;border-radius:100px;background:var(--accent);color:#fff}
+.chip.company{background:#065F46}
+.chip-x{background:none;border:none;color:rgba(255,255,255,.75);cursor:pointer;font-size:15px;line-height:1;padding:0;margin-left:2px}
+.chip-x:hover{color:#fff}
+
+/* ── Inputs ── */
+.row-input{display:flex;gap:8px;margin-top:12px}
+.row-input input{flex:1;font-size:13px;font-family:Arial,sans-serif;padding:8px 12px;border:1px solid var(--rule);border-radius:var(--radius);color:var(--ink);background:var(--white);outline:none}
+.row-input input:focus{border-color:var(--accent)}
+.row-input button{font-family:Arial,sans-serif;font-size:13px;font-weight:500;padding:8px 14px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);cursor:pointer;white-space:nowrap}
+.row-input button.green{background:#065F46}
+
+/* ── Buttons ── */
+.btn-primary{font-family:Arial,sans-serif;font-size:13px;font-weight:600;padding:10px 22px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);cursor:pointer;display:inline-flex;align-items:center;gap:8px;letter-spacing:.02em}
+.btn-primary:hover{background:#14304f}
+.btn-outline{font-family:Arial,sans-serif;font-size:12px;font-weight:600;padding:6px 14px;background:var(--white);color:var(--accent);border:1.5px solid var(--accent);border-radius:var(--radius);cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s}
+.btn-outline:hover:not(:disabled){background:var(--accent-light)}
+.btn-outline:disabled{opacity:.4;cursor:not-allowed}
+.btn-ghost{font-family:Arial,sans-serif;font-size:12px;padding:5px 10px;background:none;color:var(--ink3);border:1px solid var(--rule);border-radius:var(--radius);cursor:pointer}
+.btn-ghost:hover{background:var(--surface)}
+
+/* ── Briefing output ── */
+.topic-tag{display:inline-block;font-family:Arial,sans-serif;font-size:11px;font-weight:600;padding:3px 9px;border-radius:100px;letter-spacing:.04em;margin-bottom:10px}
+.topic-tag[data-t="ip"]  {background:var(--tag-ip);  color:var(--tag-ip-t)}
+.topic-tag[data-t="reg"] {background:var(--tag-reg); color:var(--tag-reg-t)}
+.topic-tag[data-t="lit"] {background:var(--tag-lit); color:var(--tag-lit-t)}
+.topic-tag[data-t="corp"]{background:var(--tag-corp);color:var(--tag-corp-t)}
+.topic-tag[data-t="biz"] {background:var(--tag-biz); color:var(--tag-biz-t)}
+.divider{border:none;border-top:1px solid var(--rule);margin:1rem 0}
+.brief-section{margin-bottom:1.25rem}
+.brief-section:last-child{margin-bottom:0}
+.section-label{font-family:Arial,sans-serif;font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px}
+.bullets{list-style:none;display:flex;flex-direction:column;gap:7px}
+.bullets li{display:flex;gap:10px;font-size:14px;line-height:1.65;color:var(--ink)}
+.bullets li::before{content:'—';color:var(--accent);flex-shrink:0;font-weight:300}
+.prose{font-size:14px;line-height:1.8;color:var(--ink2);font-family:Georgia,serif}
+.out-actions{display:flex;gap:8px;margin-top:.75rem}
+.act-btn{font-family:Arial,sans-serif;font-size:12px;font-weight:500;padding:5px 12px;border:1px solid var(--rule);border-radius:6px;background:var(--white);color:var(--ink2);cursor:pointer}
+.act-btn:hover{background:var(--surface)}
+.act-btn.hi{background:var(--accent-light);color:var(--accent);border-color:var(--accent-light)}
+
+/* ── Biz intel ── */
+.biz-card{background:#F0FDF8;border:1px solid #A7F3D0;border-radius:var(--radius);padding:1.25rem;margin-top:1rem}
+.biz-title{font-family:Arial,sans-serif;font-size:12px;font-weight:700;color:#065F46;text-transform:uppercase;letter-spacing:.07em;margin-bottom:14px}
+.biz-items{display:flex;flex-direction:column;gap:8px}
+.biz-item{background:var(--white);border-radius:6px;padding:10px 14px;border-left:3px solid #10B981}
+.biz-item.risk{border-left-color:#EF4444}
+.biz-lbl{font-family:Arial,sans-serif;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px}
+.biz-item.opp .biz-lbl{color:#065F46}
+.biz-item.risk .biz-lbl{color:#991B1B}
+.biz-item p{font-size:13px;line-height:1.6;color:var(--ink2);font-family:Georgia,serif}
+.co-badge{display:inline-block;font-family:Arial,sans-serif;font-size:10px;font-weight:600;padding:2px 7px;border-radius:100px;background:#ECFDF5;color:#065F46;border:1px solid #A7F3D0;margin-left:6px}
+
+/* ── Chat / Your Thoughts ── */
+.thoughts-layout{display:flex;gap:1rem;align-items:flex-start}
+.archive-sidebar{width:210px;flex-shrink:0;display:flex;flex-direction:column;gap:6px}
+.archive-item{font-family:Arial,sans-serif;font-size:12px;padding:8px 10px;border:1px solid var(--rule);border-radius:var(--radius);cursor:pointer;background:var(--white);text-align:left;width:100%;transition:all .12s}
+.archive-item:hover{border-color:var(--accent);color:var(--accent)}
+.archive-item.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.archive-item .arc-date{font-weight:600;font-size:12px}
+.archive-item .arc-topics{font-size:10px;opacity:.75;margin-top:2px}
+.chat-pane{flex:1;min-width:0;display:flex;flex-direction:column}
+.chat-area{display:flex;flex-direction:column;height:380px;overflow-y:auto;padding:1rem;scroll-behavior:smooth;border:1px solid var(--rule);border-radius:var(--radius) var(--radius) 0 0;background:var(--white)}
+.msg{display:flex;flex-direction:column;margin-bottom:.875rem}
+.msg.user{align-items:flex-end}
+.msg.bot{align-items:flex-start}
+.msg-bubble{max-width:82%;padding:9px 13px;border-radius:10px;font-size:13.5px;line-height:1.65}
+.msg.user .msg-bubble{background:var(--accent);color:#fff;border-radius:10px 10px 2px 10px;font-family:Arial,sans-serif}
+.msg.bot  .msg-bubble{background:var(--surface);color:var(--ink);border:1px solid var(--rule);border-radius:10px 10px 10px 2px;font-family:Georgia,serif}
+.msg-time{font-family:Arial,sans-serif;font-size:10px;color:var(--ink3);margin-top:3px}
+.chat-input-row{display:flex;gap:8px;padding:.75rem 1rem;border:1px solid var(--rule);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--white)}
+.chat-input{flex:1;font-size:13px;font-family:Georgia,serif;padding:8px 12px;border:1px solid var(--rule);border-radius:var(--radius);color:var(--ink);resize:none;height:40px;outline:none}
+.chat-input:focus{border-color:var(--accent)}
+.send-btn{font-family:Arial,sans-serif;font-size:13px;font-weight:600;padding:8px 16px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);cursor:pointer}
+.send-btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* ── URL list ── */
+.url-items{display:flex;flex-direction:column;gap:6px}
+.url-item{display:flex;align-items:center;gap:8px;font-family:Arial,sans-serif;font-size:12px;background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:7px 10px;color:var(--ink2)}
+.url-item span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.url-del{background:none;border:none;cursor:pointer;color:var(--ink3);font-size:16px;line-height:1;padding:0 2px}
+.url-del:hover{color:#dc2626}
+.url-input-row{display:flex;gap:8px;margin-bottom:10px}
+.url-input-row input{flex:1;font-size:13px;font-family:Arial,sans-serif;padding:8px 12px;border:1px solid var(--rule);border-radius:var(--radius);color:var(--ink);background:var(--white);outline:none}
+.url-input-row input:focus{border-color:var(--accent)}
+.url-input-row button{font-family:Arial,sans-serif;font-size:13px;font-weight:500;padding:8px 14px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);cursor:pointer}
+
+/* ── Misc ── */
+.badge{font-family:Arial,sans-serif;font-size:11px;color:var(--gold);background:var(--gold-light);border:1px solid #F0DFA0;border-radius:100px;padding:3px 10px;display:inline-flex;align-items:center;gap:4px}
+.hint{font-family:Arial,sans-serif;font-size:13px;color:var(--ink3);text-align:center;padding:2rem 1rem}
+.note{background:var(--gold-light);border:1px solid #F0DFA0;border-radius:var(--radius);padding:10px 14px;font-family:Arial,sans-serif;font-size:12px;color:#78580A;display:flex;gap:8px;align-items:flex-start}
+.section-lbl2{font-family:Arial,sans-serif;font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px}
+.spinner{width:13px;height:13px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block;vertical-align:middle}
+.spinner.dark{border-color:rgba(26,58,92,.2);border-top-color:var(--accent)}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+
+<div class="app">
+
+  <div class="header">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="logo-mark">Lx</div>
+      <div>
+        <div class="logo-text">LexBrief</div>
+        <div class="logo-sub">Legal Intelligence · Team Edition</div>
+      </div>
+    </div>
+    <div class="header-date" id="hdate"></div>
+  </div>
+
+  <div class="nav">
+    <button class="nav-btn active" id="nav-brief"    onclick="showPanel('brief',this)"   >📰 Daily Briefing</button>
+    <button class="nav-btn"        id="nav-thoughts"  onclick="showPanel('thoughts',this)">💬 Your Thoughts</button>
+    <button class="nav-btn"        id="nav-settings"  onclick="showPanel('settings',this)">⚙ Sources &amp; Topics</button>
+  </div>
+
+  <div class="main">
+
+    <!-- ══ DAILY BRIEFING ══ -->
+    <div class="panel active" id="panel-brief">
+      <div class="card">
+        <div class="card-head">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <span class="card-title">Morning Briefing</span>
+            <span id="brief-badge" class="badge" style="display:none">📌 Ready</span>
+            <span id="brief-ts"   style="display:none;font-family:Arial,sans-serif;font-size:11px;color:var(--ink3)"></span>
+            <span id="brief-spin" style="display:none;font-family:Arial,sans-serif;font-size:11px;color:var(--ink3)">
+              <span class="spinner dark"></span>&nbsp;Generating…
+            </span>
+          </div>
+          <button class="btn-outline" id="renew-btn" onclick="generateBriefing()">↻ Renew</button>
+        </div>
+        <div class="card-body">
+          <div id="brief-empty" style="text-align:center;padding:2.5rem 1rem">
+            <div style="font-size:28px;margin-bottom:10px">📋</div>
+            <div style="font-size:14px;font-weight:600;color:var(--ink2);margin-bottom:6px">Ready to generate your briefing</div>
+            <div style="font-family:Arial,sans-serif;font-size:13px;color:var(--ink3);margin-bottom:20px">
+              Select your Legal &amp; Business Topics in <strong>Sources &amp; Topics</strong>, then click below.
+            </div>
+            <button class="btn-primary" onclick="generateBriefing()">✦ Generate today's briefing</button>
+          </div>
+          <div id="brief-out" style="display:none"></div>
+        </div>
+      </div>
+      <div class="note">📎 <span><strong>NotebookLM tip:</strong> Copy any Podcast Prose section and paste into <a href="https://notebooklm.google.com" target="_blank" style="color:var(--gold)">NotebookLM</a> → Audio Overview for a daily podcast.</span></div>
+    </div>
+
+    <!-- ══ YOUR THOUGHTS ══ -->
+    <div class="panel" id="panel-thoughts">
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Your Thoughts</span>
+          <span id="ctx-badge" class="badge">📰 No briefing loaded yet</span>
+        </div>
+        <div class="card-body" style="padding:1rem 1.25rem">
+          <p style="font-family:Arial,sans-serif;font-size:13px;color:var(--ink3);margin-bottom:14px">
+            Ask questions about today's briefing or any saved archive. Select a past briefing from the left to load it into context.
+          </p>
+          <div class="thoughts-layout">
+            <!-- Archive sidebar -->
+            <div class="archive-sidebar">
+              <div class="section-lbl2">Briefing Archive</div>
+              <div id="archive-list">
+                <div style="font-family:Arial,sans-serif;font-size:12px;color:var(--ink3);padding:8px 0">No saved briefings yet.</div>
+              </div>
+            </div>
+            <!-- Chat pane -->
+            <div class="chat-pane">
+              <div class="chat-area" id="chat-area">
+                <div class="msg bot">
+                  <div class="msg-bubble">Hello! I'm your legal intelligence assistant. Generate a briefing on the Daily Briefing tab, then come here to ask questions or explore past briefings from the archive.</div>
+                  <div class="msg-time">Now</div>
+                </div>
+              </div>
+              <div class="chat-input-row">
+                <textarea class="chat-input" id="chat-input" placeholder="Ask about today's briefing or any legal topic…" rows="1" onkeydown="chatKey(event)"></textarea>
+                <button class="send-btn" id="send-btn" onclick="sendMessage()">Send</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ SOURCES & TOPICS ══ -->
+    <div class="panel" id="panel-settings">
+
+      <div class="card">
+        <div class="card-head"><span class="card-title">Legal Topics</span></div>
+        <div class="card-body">
+          <p style="font-family:Arial,sans-serif;font-size:13px;color:var(--ink3);margin-bottom:12px">Toggle topics and add custom keywords. These shape your daily briefing.</p>
+          <div class="topic-row">
+            <div class="topic-pill" data-topic="ip"   onclick="toggleTopic(this)">IP &amp; Technology</div>
+            <div class="topic-pill" data-topic="reg"  onclick="toggleTopic(this)">Regulatory &amp; Compliance</div>
+            <div class="topic-pill" data-topic="lit"  onclick="toggleTopic(this)">Litigation &amp; Courts</div>
+            <div class="topic-pill" data-topic="corp" onclick="toggleTopic(this)">Corporate &amp; M&amp;A</div>
+          </div>
+          <div class="row-input">
+            <input type="text" id="kw-in" placeholder="Add keyword (e.g. antitrust, GDPR, SEC enforcement…)">
+            <button onclick="addKeyword()">+ Add</button>
+          </div>
+          <div class="chip-row" id="kw-chips"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><span class="card-title">Business Topics</span></div>
+        <div class="card-body">
+          <p style="font-family:Arial,sans-serif;font-size:13px;color:var(--ink3);margin-bottom:12px">Select sectors and track companies. The briefing will surface legal opportunities and risks for each.</p>
+          <div class="section-lbl2">Business Sectors</div>
+          <div class="topic-row">
+            <div class="topic-pill biz-pill" data-sector="technology"    onclick="toggleSector(this)">Technology &amp; AI</div>
+            <div class="topic-pill biz-pill" data-sector="finance"       onclick="toggleSector(this)">Finance &amp; Banking</div>
+            <div class="topic-pill biz-pill" data-sector="healthcare"    onclick="toggleSector(this)">Healthcare &amp; Pharma</div>
+            <div class="topic-pill biz-pill" data-sector="realestate"    onclick="toggleSector(this)">Real Estate</div>
+            <div class="topic-pill biz-pill" data-sector="energy"        onclick="toggleSector(this)">Energy &amp; Environment</div>
+            <div class="topic-pill biz-pill" data-sector="retail"        onclick="toggleSector(this)">Retail &amp; E-commerce</div>
+            <div class="topic-pill biz-pill" data-sector="media"         onclick="toggleSector(this)">Media &amp; Entertainment</div>
+            <div class="topic-pill biz-pill" data-sector="manufacturing" onclick="toggleSector(this)">Manufacturing</div>
+            <div class="topic-pill biz-pill" data-sector="startup"       onclick="toggleSector(this)">Startups &amp; VC</div>
+          </div>
+          <div style="margin-top:16px">
+            <div class="section-lbl2">Tracked Companies</div>
+            <p style="font-family:Arial,sans-serif;font-size:12px;color:var(--ink3);margin-bottom:8px">The briefing pulls publicly available legal &amp; regulatory information for each company.</p>
+            <div class="row-input">
+              <input type="text" id="co-in" placeholder="Company name (e.g. Apple, JPMorgan, Tesla…)">
+              <button class="green" onclick="addCompany()">+ Track</button>
+            </div>
+            <div class="chip-row" id="co-chips"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><span class="card-title">News Sources</span></div>
+        <div class="card-body">
+          <p style="font-family:Arial,sans-serif;font-size:13px;color:var(--ink3);margin-bottom:12px">Add legal news websites. The briefing engine references these sources.</p>
+          <div class="url-input-row">
+            <input type="text" id="url-in" placeholder="https://law360.com …">
+            <button onclick="addUrl()">Add</button>
+          </div>
+          <div class="url-items" id="url-items">
+            <div class="url-item"><span>law360.com</span><button class="url-del" onclick="removeUrl(this,'law360.com')">×</button></div>
+            <div class="url-item"><span>courthousenews.com</span><button class="url-del" onclick="removeUrl(this,'courthousenews.com')">×</button></div>
+          </div>
+        </div>
+      </div>
+
+      <p style="font-family:Arial,sans-serif;font-size:12px;color:var(--ink3);text-align:center">Changes take effect on the next renewal.</p>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// CONFIG  —  paste your Anthropic key between the quotes below
+// ─────────────────────────────────────────────────────────────────────────────
+const API_KEY = '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';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────────────────────────────────────
+const S = {
+  topics:    { ip:true, reg:true, lit:true, corp:true },
+  sectors:   {},
+  keywords:  [],
+  companies: [],
+  urls:      ['law360.com','courthousenews.com'],
+  context:   '',        // current briefing context for chat
+  chatHist:  [],
+  archive:   []         // [{date, label, topics, html, context}]
+};
+
+const TOPIC_META = {
+  ip:   {label:'IP & Technology',  t:'ip'  },
+  reg:  {label:'Regulatory & Compliance', t:'reg' },
+  lit:  {label:'Litigation & Courts',     t:'lit' },
+  corp: {label:'Corporate & M&A',  t:'corp'}
+};
+const SECTOR_META = {
+  technology:'Technology & AI', finance:'Finance & Banking',
+  healthcare:'Healthcare & Pharma', realestate:'Real Estate',
+  energy:'Energy & Environment', retail:'Retail & E-commerce',
+  media:'Media & Entertainment', manufacturing:'Manufacturing', startup:'Startups & VC'
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────────────────────────────────
+document.getElementById('hdate').textContent =
+  new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+
+// Load archive from localStorage
+try {
+  const saved = localStorage.getItem('lb_archive');
+  if (saved) S.archive = JSON.parse(saved);
+  renderArchive();
+} catch(e) {}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NAVIGATION  — simple, reliable tab switching
+// ─────────────────────────────────────────────────────────────────────────────
+function showPanel(name, btn) {
+  ['brief','thoughts','settings'].forEach(id => {
+    document.getElementById('panel-' + id).classList.remove('active');
+    document.getElementById('nav-' + id).classList.remove('active');
+  });
+  document.getElementById('panel-' + name).classList.add('active');
+  (btn || document.getElementById('nav-' + name)).classList.add('active');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TOPICS / SECTORS / KEYWORDS / COMPANIES / URLS
+// ─────────────────────────────────────────────────────────────────────────────
+function toggleTopic(el) {
+  const t = el.dataset.topic;
+  S.topics[t] = !S.topics[t];
+  el.classList.toggle('off', !S.topics[t]);
+}
+function toggleSector(el) {
+  const s = el.dataset.sector;
+  S.sectors[s] = !S.sectors[s];
+  el.classList.toggle('off', !S.sectors[s]);
+}
+function addKeyword() {
+  const inp = document.getElementById('kw-in'), v = inp.value.trim();
+  if (!v || S.keywords.includes(v)) { inp.value=''; return; }
+  S.keywords.push(v); renderKwChips(); inp.value='';
+}
+function removeKeyword(k) { S.keywords = S.keywords.filter(x=>x!==k); renderKwChips(); }
+function renderKwChips() {
+  document.getElementById('kw-chips').innerHTML =
+    S.keywords.map(k=>`<span class="chip">${k}<button class="chip-x" onclick="removeKeyword('${esc(k)}')">×</button></span>`).join('');
+}
+function addCompany() {
+  const inp = document.getElementById('co-in'), v = inp.value.trim();
+  if (!v || S.companies.includes(v)) { inp.value=''; return; }
+  S.companies.push(v); renderCoChips(); inp.value='';
+}
+function removeCompany(c) { S.companies = S.companies.filter(x=>x!==c); renderCoChips(); }
+function renderCoChips() {
+  document.getElementById('co-chips').innerHTML =
+    S.companies.map(c=>`<span class="chip company">🏢 ${c}<button class="chip-x" onclick="removeCompany('${esc(c)}')">×</button></span>`).join('');
+}
+function addUrl() {
+  const inp = document.getElementById('url-in');
+  let v = inp.value.trim().replace(/^https?:\/\//,'').replace(/\/$/,'');
+  if (!v || S.urls.includes(v)) { inp.value=''; return; }
+  S.urls.push(v);
+  const d = document.createElement('div'); d.className='url-item';
+  d.innerHTML=`<span>${v}</span><button class="url-del" onclick="removeUrl(this,'${esc(v)}')">×</button>`;
+  document.getElementById('url-items').appendChild(d); inp.value='';
+}
+function removeUrl(btn, url) { S.urls=S.urls.filter(u=>u!==url); btn.closest('.url-item').remove(); }
+
+document.getElementById('kw-in').addEventListener('keydown', e=>{ if(e.key==='Enter') addKeyword(); });
+document.getElementById('co-in').addEventListener('keydown', e=>{ if(e.key==='Enter') addCompany(); });
+document.getElementById('url-in').addEventListener('keydown',e=>{ if(e.key==='Enter') addUrl(); });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GENERATE BRIEFING  (streaming)
+// ─────────────────────────────────────────────────────────────────────────────
+async function generateBriefing() {
+  if (!API_KEY || API_KEY === 'YOUR_API_KEY_HERE') {
+    document.getElementById('brief-empty').innerHTML =
+      '<div style="font-size:13px;color:#dc2626;font-family:Arial,sans-serif">⚠️ API key not set. Open this file in a text editor and replace <strong>YOUR_API_KEY_HERE</strong> with your Anthropic API key.</div>';
+    document.getElementById('brief-empty').style.display = 'block';
+    return;
+  }
+
+  const activeTopics = Object.entries(S.topics).filter(([,v])=>v).map(([k])=>k);
+  if (!activeTopics.length) {
+    alert('Go to Sources & Topics and enable at least one Legal Topic first.');
+    return;
+  }
+
+  const activeSectors = Object.entries(S.sectors).filter(([,v])=>v).map(([k])=>SECTOR_META[k]);
+  const hasBiz = activeSectors.length > 0 || S.companies.length > 0;
+
+  document.getElementById('brief-empty').style.display = 'none';
+  document.getElementById('brief-out').style.display   = 'none';
+  document.getElementById('brief-spin').style.display  = 'inline-flex';
+  document.getElementById('renew-btn').disabled        = true;
+
+  const topicNames = activeTopics.map(t=>TOPIC_META[t].label).join(', ');
+  const sources    = S.urls.join(', ') || 'general legal news';
+  const kwExtra    = S.keywords.length ? ` Emphasize: ${S.keywords.join(', ')}.` : '';
+  const today      = new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+
+  let bizBlock = '';
+  if (hasBiz) {
+    bizBlock = `\nAlso add a "biz" array of opportunities and risks drawn from today's legal news.`
+      + (activeSectors.length ? ` Sectors: ${activeSectors.join(', ')}.` : '')
+      + (S.companies.length   ? ` Companies: ${S.companies.join(', ')}.` : '')
+      + ` Each item: {type:"opportunity"|"risk",company:"or empty",sector:"or empty",text:"1-2 sentences"}. Min 2 opps + 2 risks.`;
+  }
+
+  const system = `You are a senior legal news analyst. Generate a concise morning legal briefing for ${today}. Sources: ${sources}. Topics: ${topicNames}.${kwExtra} Cite plausible cases and agencies. 2-3 bullets + 1 short paragraph per section.${bizBlock}
+Reply ONLY in valid JSON, no markdown fences:
+{"sections":[{"topic":"ip","bullets":["..."],"prose":"..."}]${hasBiz?',"biz":[{"type":"opportunity","company":"","sector":"","text":"..."}]':''}}
+Only include these topics: ${activeTopics.join(',')}.`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key': API_KEY,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true'
+      },
+      body: JSON.stringify({
+        model:'claude-haiku-4-5-20251001',
+        max_tokens:1500,
+        stream:true,
+        system,
+        messages:[{role:'user',content:`Briefing. Topics:${activeTopics.join(',')}. Sources:${sources}.`}]
+      })
+    });
+
+    if (!res.ok) { const e=await res.json(); throw new Error(e.error?.message||'API '+res.status); }
+
+    const reader=res.body.getReader(), dec=new TextDecoder();
+    let raw='';
+    while(true){
+      const {done,value}=await reader.read(); if(done) break;
+      for(const line of dec.decode(value,{stream:true}).split('\n')){
+        if(!line.startsWith('data: ')) continue;
+        const d=line.slice(6); if(d==='[DONE]') break;
+        try{ const o=JSON.parse(d); if(o.type==='content_block_delta'&&o.delta?.text) raw+=o.delta.text; }catch{}
+      }
+    }
+
+    const clean = raw.replace(/```json|```/g,'').trim();
+    const parsed = JSON.parse(clean.slice(clean.indexOf('{'), clean.lastIndexOf('}')+1));
+
+    // Build context string
+    S.context = parsed.sections.map(s=>`[${TOPIC_META[s.topic]?.label||s.topic}]\n${s.prose}`).join('\n\n');
+
+    // Render sections
+    const out = document.getElementById('brief-out');
+    out.innerHTML = parsed.sections.map((s,i)=>{
+      const m = TOPIC_META[s.topic]||{label:s.topic,t:s.topic};
+      const sp = (s.prose||'').replace(/`/g,'\\`');
+      const sb = (s.bullets||[]).map(b=>'— '+b).join('\\n').replace(/`/g,'\\`');
+      return `<div class="brief-section">
+        ${i>0?'<hr class="divider">':''}
+        <span class="topic-tag" data-t="${m.t}">${m.label}</span>
+        <div class="section-label">Key developments</div>
+        <ul class="bullets">${(s.bullets||[]).map(b=>`<li>${b}</li>`).join('')}</ul>
+        <div style="margin-top:10px" class="section-label">Podcast prose</div>
+        <p class="prose">${s.prose||''}</p>
+        <div class="out-actions">
+          <button class="act-btn hi" onclick="copy(\`${sp}\`)">📋 Copy prose</button>
+          <button class="act-btn"    onclick="copy(\`${sb}\`)">Copy bullets</button>
+        </div>
+      </div>`;
+    }).join('');
+
+    // Render biz intel
+    if (hasBiz && parsed.biz?.length) {
+      const opps  = parsed.biz.filter(x=>x.type==='opportunity');
+      const risks = parsed.biz.filter(x=>x.type==='risk');
+      const renderBiz = (items,cls,lbl) => items.map(x=>`
+        <div class="biz-item ${cls}">
+          <div class="biz-lbl">${lbl}${x.company?`<span class="co-badge">🏢 ${x.company}</span>`:''}${x.sector&&!x.company?`<span class="co-badge">📊 ${x.sector}</span>`:''}</div>
+          <p>${x.text}</p>
+        </div>`).join('');
+      out.innerHTML += `<hr class="divider">
+        <div class="biz-card">
+          <div class="biz-title">📊 Business Intelligence — Legal Opportunities &amp; Risks</div>
+          <div class="biz-items">
+            ${renderBiz(opps,'opp','▲ Opportunity')}
+            ${renderBiz(risks,'risk','▼ Risk')}
+          </div>
+        </div>`;
+      S.context += '\n\n[Business Intelligence]\n' +
+        parsed.biz.map(x=>`${x.type.toUpperCase()}${x.company?' ('+x.company+')':''}: ${x.text}`).join('\n');
+    }
+
+    // Save to archive
+    const now = new Date();
+    const entry = {
+      id:    now.getTime(),
+      date:  now.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}),
+      time:  now.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}),
+      topics: activeTopics.map(t=>TOPIC_META[t].label).join(', '),
+      html:  out.innerHTML,
+      context: S.context
+    };
+    S.archive.unshift(entry);
+    if (S.archive.length > 30) S.archive.length = 30;
+    try { localStorage.setItem('lb_archive', JSON.stringify(S.archive)); } catch {}
+    renderArchive();
+
+    // Update UI
+    out.style.display = 'block';
+    document.getElementById('brief-badge').style.display = 'inline-flex';
+    document.getElementById('brief-ts').style.display    = 'inline';
+    document.getElementById('brief-ts').textContent      = 'Updated ' + entry.time;
+    document.getElementById('ctx-badge').textContent     = `📰 ${activeTopics.length * 3} items in context`;
+
+  } catch(e) {
+    document.getElementById('brief-empty').innerHTML =
+      `<div style="font-size:13px;color:#dc2626;font-family:Arial,sans-serif">⚠️ ${e.message}</div>
+       <button class="btn-primary" style="margin-top:14px" onclick="generateBriefing()">Try again</button>`;
+    document.getElementById('brief-empty').style.display = 'block';
+    console.error(e);
+  }
+
+  document.getElementById('brief-spin').style.display = 'none';
+  document.getElementById('renew-btn').disabled       = false;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ARCHIVE
+// ─────────────────────────────────────────────────────────────────────────────
+function renderArchive() {
+  const list = document.getElementById('archive-list');
+  if (!S.archive.length) {
+    list.innerHTML = '<div style="font-family:Arial,sans-serif;font-size:12px;color:var(--ink3);padding:8px 0">No saved briefings yet.</div>';
+    return;
+  }
+  list.innerHTML = S.archive.map((e,i)=>`
+    <button class="archive-item ${i===0?'active':''}" onclick="loadArchive(${i})">
+      <div class="arc-date">${e.date} ${e.time}</div>
+      <div class="arc-topics">${e.topics.slice(0,40)}${e.topics.length>40?'…':''}</div>
+    </button>`).join('');
+}
+
+function loadArchive(idx) {
+  const entry = S.archive[idx];
+  if (!entry) return;
+  S.context = entry.context;
+  S.chatHist = [];
+
+  document.querySelectorAll('.archive-item').forEach((el,i)=>el.classList.toggle('active',i===idx));
+  document.getElementById('ctx-badge').textContent = `📰 Archive: ${entry.date} ${entry.time}`;
+
+  // Clear chat and add welcome message
+  const area = document.getElementById('chat-area');
+  area.innerHTML = '';
+  addMsg('bot', `Loaded briefing from ${entry.date} at ${entry.time}. Topics: ${entry.topics}. Ask me anything about it.`);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CHAT
+// ─────────────────────────────────────────────────────────────────────────────
+function chatKey(e) { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();} }
+function ts() { return new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}); }
+
+function addMsg(role, text) {
+  const area = document.getElementById('chat-area');
+  const d = document.createElement('div');
+  d.className = 'msg ' + role;
+  d.innerHTML = `<div class="msg-bubble">${text.replace(/\n/g,'<br>')}</div><div class="msg-time">${ts()}</div>`;
+  area.appendChild(d);
+  area.scrollTop = area.scrollHeight;
+  return d;
+}
+
+async function sendMessage() {
+  if (!API_KEY || API_KEY === 'YOUR_API_KEY_HERE') { alert('API key not configured.'); return; }
+  const inp = document.getElementById('chat-input');
+  const q   = inp.value.trim(); if (!q) return;
+  inp.value = '';
+  document.getElementById('send-btn').disabled = true;
+
+  addMsg('user', q);
+  S.chatHist.push({role:'user', content:q});
+  const loader = addMsg('bot','<span class="spinner dark"></span>');
+
+  const ctx = S.context ? `\n\nToday's briefing:\n${S.context}` : '';
+  const system = `You are a senior legal intelligence assistant. Answer questions about legal briefings with precision. Draw on the briefing context below. For archive briefings, refer to them by their date.${ctx}`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key':API_KEY,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true'
+      },
+      body:JSON.stringify({
+        model:'claude-haiku-4-5-20251001',
+        max_tokens:800,
+        system,
+        messages:S.chatHist
+      })
+    });
+    const data=await res.json();
+    if(data.error) throw new Error(data.error.message);
+    const reply=data.content.map(b=>b.text||'').join('');
+    S.chatHist.push({role:'assistant',content:reply});
+    loader.querySelector('.msg-bubble').innerHTML = reply.replace(/\n/g,'<br>');
+  } catch(e) {
+    loader.querySelector('.msg-bubble').textContent = 'Error — ' + e.message;
+  }
+  document.getElementById('chat-area').scrollTop = 9999;
+  document.getElementById('send-btn').disabled = false;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UTILS
+// ─────────────────────────────────────────────────────────────────────────────
+function copy(t) { navigator.clipboard.writeText(t).catch(()=>{}); }
+function esc(s) { return (s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+</script>
