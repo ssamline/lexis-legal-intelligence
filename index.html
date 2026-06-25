@@ -456,26 +456,19 @@ Only include these topics: ${activeTopics.join(',')}.`;
       body: JSON.stringify({
         model:'claude-haiku-4-5-20251001',
         max_tokens:2500,
-        stream:true,
         system,
         messages:[{role:'user',content:`Briefing. Topics:${activeTopics.join(',')}. Sources:${sources}.`}]
       })
     });
 
-    if (!res.ok) { const e=await res.json(); throw new Error(e.error?.message||'API '+res.status); }
+    if (!res.ok) { const e=await res.json(); throw new Error(e.error?.message||'API error '+res.status); }
 
-    const reader=res.body.getReader(), dec=new TextDecoder();
-    let raw='';
-    while(true){
-      const {done,value}=await reader.read(); if(done) break;
-      for(const line of dec.decode(value,{stream:true}).split('\n')){
-        if(!line.startsWith('data: ')) continue;
-        const d=line.slice(6); if(d==='[DONE]') break;
-        try{ const o=JSON.parse(d); if(o.type==='content_block_delta'&&o.delta?.text) raw+=o.delta.text; }catch{}
-      }
-    }
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+    const raw = data.content.map(b=>b.text||'').join('');
 
-    const clean = raw.replace(/```json|```/g,'').trim();
+    const clean = raw.replace(/```json\n?|```/g,'').trim();
+    if (!clean) throw new Error('Empty response — check server API key configuration.');
     const parsed = JSON.parse(clean.slice(clean.indexOf('{'), clean.lastIndexOf('}')+1));
 
     // Build context string
