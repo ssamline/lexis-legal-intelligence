@@ -6,6 +6,10 @@ const app = express();
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname)));
 
+app.get('/api/health', (req, res) => {
+  res.json({ ok: true, keySet: !!process.env.ANTHROPIC_API_KEY });
+});
+
 app.post('/api/chat', (req, res) => {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
