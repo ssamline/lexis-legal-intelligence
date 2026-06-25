@@ -1,5 +1,4 @@
 const express = require('express');
-const https = require('https');
 const path = require('path');
 
 const app = express();
@@ -10,60 +9,28 @@ app.get('/api/health', (req, res) => {
   res.json({ ok: true, keySet: !!process.env.ANTHROPIC_API_KEY });
 });
 
-app.post('/api/chat', (req, res) => {
+app.post('/api/chat', async (req, res) => {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: { message: 'API key not configured on server.' } });
+    return res.status(500).json({ error: { message: 'ANTHROPIC_API_KEY not set on server.' } });
   }
 
-  const body = JSON.stringify(req.body);
-  const isStream = req.body.stream === true;
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify(req.body)
+    });
 
-  const options = {
-    hostname: 'api.anthropic.com',
-    path: '/v1/messages',
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'Content-Length': Buffer.byteLength(body)
-    }
-  };
-
-  const apiReq = https.request(options, (apiRes) => {
-    res.status(apiRes.statusCode);
-
-    // Always buffer error responses as JSON so the browser can read them
-    if (apiRes.statusCode !== 200) {
-      let data = '';
-      apiRes.on('data', chunk => { data += chunk; });
-      apiRes.on('end', () => {
-        res.setHeader('Content-Type', 'application/json');
-        res.send(data);
-      });
-      return;
-    }
-
-    if (isStream) {
-      res.setHeader('Content-Type', 'text/event-stream');
-      apiRes.pipe(res);
-    } else {
-      let data = '';
-      apiRes.on('data', chunk => { data += chunk; });
-      apiRes.on('end', () => {
-        res.setHeader('Content-Type', 'application/json');
-        res.send(data);
-      });
-    }
-  });
-
-  apiReq.on('error', (err) => {
+    const data = await response.json();
+    res.status(response.status).json(data);
+  } catch (err) {
     res.status(500).json({ error: { message: err.message } });
-  });
-
-  apiReq.write(body);
-  apiReq.end();
+  }
 });
 
 const PORT = process.env.PORT || 3000;
