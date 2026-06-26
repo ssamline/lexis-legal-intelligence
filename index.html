@@ -246,14 +246,14 @@ body{font-family:Georgia,serif;background:var(--surface);color:var(--ink);min-he
         </div>
         <div class="card-body">
           <p style="font-family:Arial,sans-serif;font-size:13px;color:var(--ink3);margin-bottom:12px">
-            Enter your Google AI API key. Stored <strong>only in this browser</strong> — never in any server or source code.
+            Enter your Anthropic API key. Stored <strong>only in this browser</strong> — never in any server or source code.
           </p>
           <div class="row-input">
-            <input type="password" id="api-key-input" placeholder="AIza…" autocomplete="off" style="font-family:monospace">
+            <input type="password" id="api-key-input" placeholder="sk-ant-api03-…" autocomplete="off" style="font-family:monospace">
             <button onclick="saveApiKey()">Save key</button>
           </div>
           <div style="font-family:Arial,sans-serif;font-size:11px;color:var(--ink3);margin-top:8px">
-            Get your free key at <strong>aistudio.google.com → Get API key</strong>. To remove it, save an empty field.
+            Get your key at <strong>console.anthropic.com → API Keys</strong>. To remove it, save an empty field.
           </div>
         </div>
       </div>
@@ -341,17 +341,7 @@ body{font-family:Georgia,serif;background:var(--surface);color:var(--ink);min-he
   </div>
 </div>
 
-<script type="importmap">
-{
-  "imports": {
-    "@google/genai": "https://esm.sh/@google/genai"
-  }
-}
-</script>
-
-<script type="module">
-import { GoogleGenAI } from '@google/genai';
-
+<script>
 // ─────────────────────────────────────────────────────────────────────────────
 // API KEY  (stored in localStorage, never in source code)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -601,13 +591,25 @@ Reply ONLY in valid JSON, no markdown fences, no extra text:
 Only include these topics: ${activeTopics.join(',')}.`;
 
   try {
-    const ai = new GoogleGenAI({ apiKey: key });
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: [{ role: 'user', parts: [{ text: `Generate briefing. Topics:${activeTopics.join(',')}. Sources:${sources}.` }] }],
-      config: { systemInstruction: system, temperature: 0, maxOutputTokens: 2500 }
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 2500,
+        temperature: 0,
+        system,
+        messages: [{ role: 'user', content: `Generate briefing. Topics:${activeTopics.join(',')}. Sources:${sources}.` }]
+      })
     });
-    const raw = response.text;
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error?.message || `API error ${res.status}`);
+    const raw = data.content.map(b => b.text || '').join('');
 
     const clean = raw.replace(/```json\n?|```/g,'').trim();
     if (!clean) throw new Error('Empty AI response — verify ANTHROPIC_API_KEY is set in Render environment variables.');
@@ -755,17 +757,24 @@ async function sendMessage() {
   const system = `You are a senior legal intelligence assistant. Answer questions about legal briefings with precision. Draw on the briefing context below. For archive briefings, refer to them by their date.${ctx}`;
 
   try {
-    const ai = new GoogleGenAI({ apiKey: getApiKey() });
-    const contents = S.chatHist.map(m => ({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.content }]
-    }));
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents,
-      config: { systemInstruction: system, maxOutputTokens: 800 }
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': getApiKey(),
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 800,
+        system,
+        messages: S.chatHist
+      })
     });
-    const reply = response.text;
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+    const reply = data.content.map(b => b.text || '').join('');
     S.chatHist.push({role:'assistant',content:reply});
     loader.querySelector('.msg-bubble').innerHTML = reply.replace(/\n/g,'<br>');
   } catch(e) {
@@ -785,11 +794,5 @@ updateKeyStatus();
 loadAlarm();
 startBriefing();
 
-// Expose functions used by inline HTML onclick handlers
-Object.assign(window, {
-  showPanel, toggleTopic, toggleSector, addKeyword, removeKeyword,
-  addCompany, removeCompany, addUrl, removeUrl, generateBriefing,
-  loadArchive, sendMessage, chatKey, saveAlarm, requestNotifPermission,
-  saveApiKey, copy
-});
+
 </script>
