@@ -189,13 +189,9 @@ body{font-family:Georgia,serif;background:var(--surface);color:var(--ink);min-he
           <button class="btn-outline" id="renew-btn" onclick="generateBriefing()">↻ Renew</button>
         </div>
         <div class="card-body">
-          <div id="brief-empty" style="text-align:center;padding:2.5rem 1rem">
-            <div style="font-size:28px;margin-bottom:10px">📋</div>
-            <div style="font-size:14px;font-weight:600;color:var(--ink2);margin-bottom:6px">Ready to generate your briefing</div>
-            <div style="font-family:Arial,sans-serif;font-size:13px;color:var(--ink3);margin-bottom:20px">
-              Select your Legal &amp; Business Topics in <strong>Sources &amp; Topics</strong>, then click below.
-            </div>
-            <button class="btn-primary" onclick="generateBriefing()">✦ Generate today's briefing</button>
+          <div id="brief-empty" style="text-align:center;padding:2rem 1rem;display:none">
+            <div id="brief-err-msg" style="font-size:13px;color:#dc2626;font-family:Arial,sans-serif;margin-bottom:14px"></div>
+            <button class="btn-primary" onclick="generateBriefing()">↻ Try again</button>
           </div>
           <div id="brief-out" style="display:none"></div>
         </div>
@@ -485,17 +481,42 @@ document.getElementById('co-in').addEventListener('keydown', e=>{ if(e.key==='En
 document.getElementById('url-in').addEventListener('keydown',e=>{ if(e.key==='Enter') addUrl(); });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GENERATE BRIEFING  (streaming)
+// BRIEFING CACHE  (one briefing stored per calendar day)
 // ─────────────────────────────────────────────────────────────────────────────
-async function generateBriefing() {
+function todayKey() { return 'lb_today_' + new Date().toDateString(); }
+
+function startBriefing() {
+  try {
+    const cached = localStorage.getItem(todayKey());
+    if (cached) { restoreBriefing(JSON.parse(cached)); return; }
+  } catch(e) {}
+  generateBriefing();
+}
+
+function restoreBriefing(entry) {
+  const out = document.getElementById('brief-out');
+  out.innerHTML = entry.html;
+  out.style.display = 'block';
+  document.getElementById('brief-badge').style.display = 'inline-flex';
+  document.getElementById('brief-ts').style.display    = 'inline';
+  document.getElementById('brief-ts').textContent      = 'Loaded ' + entry.time;
+  S.context = entry.context || '';
+  document.getElementById('ctx-badge').textContent = `📰 Today's briefing loaded`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GENERATE BRIEFING
+// ─────────────────────────────────────────────────────────────────────────────
+async function generateBriefing(retries = 1) {
   const activeTopics = Object.entries(S.topics).filter(([,v])=>v).map(([k])=>k);
   if (!activeTopics.length) {
-    alert('Go to Sources & Topics and enable at least one Legal Topic first.');
+    document.getElementById('brief-err-msg').textContent = '⚠️ Enable at least one Legal Topic in Sources & Topics.';
+    document.getElementById('brief-empty').style.display = 'block';
     return;
   }
 
   const activeSectors = Object.entries(S.sectors).filter(([,v])=>v).map(([k])=>SECTOR_META[k]);
-  const hasBiz = activeSectors.length > 0 || S.companies.length > 0;
+  const hasBiz = true; // always include opportunities & risks
 
   document.getElementById('brief-empty').style.display = 'none';
   document.getElementById('brief-out').style.display   = 'none';
@@ -507,17 +528,14 @@ async function generateBriefing() {
   const kwExtra    = S.keywords.length ? ` Emphasize: ${S.keywords.join(', ')}.` : '';
   const today      = new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
 
-  let bizInstr = '';
-  if (hasBiz) {
-    bizInstr = ` For each section include a "biz" array of 1-2 opportunities and 1-2 risks directly tied to that section's legal developments.`
-      + (activeSectors.length ? ` Business sectors: ${activeSectors.join(', ')}.` : '')
-      + (S.companies.length   ? ` Tracked companies: ${S.companies.join(', ')}.` : '')
-      + ` Each biz item: {type:"opportunity"|"risk",company:"name or empty",sector:"name or empty",text:"1-2 sentences"}.`;
-  }
+  let bizInstr = ` For each section include a "biz" array of 1-2 opportunities and 1-2 risks directly tied to that section's legal developments.`;
+  if (activeSectors.length) bizInstr += ` Business sectors: ${activeSectors.join(', ')}.`;
+  if (S.companies.length)   bizInstr += ` Tracked companies: ${S.companies.join(', ')}.`;
+  bizInstr += ` Each biz item: {type:"opportunity"|"risk",company:"name or empty",sector:"name or empty",text:"1-2 sentences"}.`;
 
   const system = `You are a senior legal news analyst. Generate a concise daily legal briefing for ${today}. Sources: ${sources}. Topics: ${topicNames}.${kwExtra} Cite plausible cases and agencies. 2-3 bullets + 1 short paragraph per section.${bizInstr}
-Reply ONLY in valid JSON, no markdown fences:
-{"sections":[{"topic":"ip","bullets":["..."],"prose":"..."${hasBiz?',"biz":[{"type":"opportunity","company":"","sector":"","text":"..."}]':''}}]}
+Reply ONLY in valid JSON, no markdown fences, no extra text:
+{"sections":[{"topic":"ip","bullets":["..."],"prose":"...","biz":[{"type":"opportunity","company":"","sector":"","text":"..."}]}]}
 Only include these topics: ${activeTopics.join(',')}.`;
 
   try {
@@ -527,8 +545,9 @@ Only include these topics: ${activeTopics.join(',')}.`;
       body: JSON.stringify({
         model:'claude-haiku-4-5-20251001',
         max_tokens:2500,
+        temperature: 0,
         system,
-        messages:[{role:'user',content:`Briefing. Topics:${activeTopics.join(',')}. Sources:${sources}.`}]
+        messages:[{role:'user',content:`Generate briefing. Topics:${activeTopics.join(',')}. Sources:${sources}.`}]
       })
     });
 
@@ -540,13 +559,13 @@ Only include these topics: ${activeTopics.join(',')}.`;
     }
     let data;
     try { data = JSON.parse(text); } catch(e) {
-      throw new Error(`Unexpected server response: ${text.slice(0,120)}`);
+      throw new Error(`Server not reachable — check Render is running as a Web Service, not Static Site. (${text.slice(0,80)})`);
     }
     if (data.error) throw new Error(data.error.message);
     const raw = data.content.map(b=>b.text||'').join('');
 
     const clean = raw.replace(/```json\n?|```/g,'').trim();
-    if (!clean) throw new Error('Empty response — check server API key configuration.');
+    if (!clean) throw new Error('Empty AI response — verify ANTHROPIC_API_KEY is set in Render environment variables.');
     const parsed = JSON.parse(clean.slice(clean.indexOf('{'), clean.lastIndexOf('}')+1));
 
     // Build context string (include biz items per section)
@@ -605,6 +624,7 @@ Only include these topics: ${activeTopics.join(',')}.`;
     S.archive.unshift(entry);
     if (S.archive.length > 30) S.archive.length = 30;
     try { localStorage.setItem('lb_archive', JSON.stringify(S.archive)); } catch {}
+    try { localStorage.setItem(todayKey(), JSON.stringify(entry)); } catch {}
     renderArchive();
 
     // Update UI
@@ -615,9 +635,12 @@ Only include these topics: ${activeTopics.join(',')}.`;
     document.getElementById('ctx-badge').textContent     = `📰 ${activeTopics.length * 3} items in context`;
 
   } catch(e) {
-    document.getElementById('brief-empty').innerHTML =
-      `<div style="font-size:13px;color:#dc2626;font-family:Arial,sans-serif">⚠️ ${e.message}</div>
-       <button class="btn-primary" style="margin-top:14px" onclick="generateBriefing()">Try again</button>`;
+    if (retries > 0) {
+      // Auto-retry once — keep spinner visible
+      setTimeout(() => generateBriefing(retries - 1), 3000);
+      return;
+    }
+    document.getElementById('brief-err-msg').textContent = `⚠️ ${e.message}`;
     document.getElementById('brief-empty').style.display = 'block';
     console.error(e);
   }
@@ -716,4 +739,5 @@ function copy(t) { navigator.clipboard.writeText(t).catch(()=>{}); }
 function esc(s) { return (s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
 
 loadAlarm();
+startBriefing();
 </script>
