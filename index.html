@@ -603,7 +603,7 @@ Only include these topics: ${activeTopics.join(',')}.`;
   try {
     const ai = new GoogleGenAI({ apiKey: key });
     const response = await ai.models.generateContent({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.0-flash',
       contents: [{ role: 'user', parts: [{ text: `Generate briefing. Topics:${activeTopics.join(',')}. Sources:${sources}.` }] }],
       config: { systemInstruction: system, temperature: 0, maxOutputTokens: 2500 }
     });
@@ -761,7 +761,7 @@ async function sendMessage() {
       parts: [{ text: m.content }]
     }));
     const response = await ai.models.generateContent({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.0-flash',
       contents,
       config: { systemInstruction: system, maxOutputTokens: 800 }
     });
