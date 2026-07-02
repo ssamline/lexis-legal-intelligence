@@ -156,6 +156,41 @@ body{font-family:Georgia,serif;background:var(--surface);color:var(--ink);min-he
 .spinner.dark{border-color:rgba(26,58,92,.2);border-top-color:var(--accent)}
 @keyframes spin{to{transform:rotate(360deg)}}
 
+/* ── Research Hub sub-nav ── */
+.sub-nav{display:flex;background:var(--white);border-bottom:1px solid var(--rule)}
+.sub-btn{font-family:Arial,sans-serif;font-size:12px;font-weight:500;color:var(--ink3);padding:11px 18px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:color .15s}
+.sub-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+.sub-btn:hover:not(.active){color:var(--ink2)}
+.sub-panel{display:none;flex-direction:column;gap:1.25rem}
+.sub-panel.active{display:flex}
+
+/* ── Archive cards ── */
+.arc-card{background:var(--white);border:1px solid var(--rule);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.arc-card-head{display:flex;align-items:center;gap:12px;padding:13px 16px;cursor:pointer;user-select:none}
+.arc-card-head:hover{background:var(--surface)}
+.arc-card-meta{flex:1}
+.arc-card-date{font-family:Arial,sans-serif;font-size:13px;font-weight:600;color:var(--ink)}
+.arc-card-topics{font-family:Arial,sans-serif;font-size:11px;color:var(--ink3);margin-top:2px}
+.arc-card-body{display:none;border-top:1px solid var(--rule);padding:1.25rem}
+.arc-card-body.open{display:block}
+.arc-card-footer{display:flex;gap:8px;padding:10px 16px;border-top:1px solid var(--rule);background:var(--surface)}
+
+/* ── Search results ── */
+.result-list{display:flex;flex-direction:column;gap:10px;margin-top:4px}
+.result-card{background:var(--white);border:1px solid var(--rule);border-radius:var(--radius);padding:13px 16px;display:flex;flex-direction:column;gap:5px}
+.result-badge{font-family:Arial,sans-serif;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:2px 9px;border-radius:100px;display:inline-block;width:fit-content}
+.result-badge.news{background:var(--accent-light);color:var(--accent)}
+.result-badge.case{background:var(--tag-lit);color:var(--tag-lit-t)}
+.result-title{font-size:14px;font-family:Georgia,serif;color:var(--accent);cursor:pointer;text-decoration:none;line-height:1.45}
+.result-title:hover{text-decoration:underline}
+.result-meta{font-family:Arial,sans-serif;font-size:11px;color:var(--ink3)}
+.result-snippet{font-family:Georgia,serif;font-size:13px;color:var(--ink2);line-height:1.6}
+
+/* ── Q&A enhancements ── */
+.qa-ctx-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.msg-sources{font-family:Arial,sans-serif;font-size:10px;color:var(--ink3);margin-top:4px;display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.src-pill{background:var(--surface);border:1px solid var(--rule);border-radius:100px;padding:2px 8px}
+
 /* ── Article modal ── */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;display:flex;align-items:center;justify-content:center;padding:1rem}
 .modal-overlay.hidden{display:none}
@@ -216,41 +251,68 @@ body{font-family:Georgia,serif;background:var(--surface);color:var(--ink);min-he
       <div class="note">📎 <span><strong>NotebookLM tip:</strong> Copy any Podcast Prose section and paste into <a href="https://notebooklm.google.com" target="_blank" style="color:var(--gold)">NotebookLM</a> → Audio Overview for a daily podcast.</span></div>
     </div>
 
-    <!-- ══ YOUR THOUGHTS ══ -->
+    <!-- ══ RESEARCH HUB (Your Thoughts) ══ -->
     <div class="panel" id="panel-thoughts">
-      <div class="card">
-        <div class="card-head">
-          <span class="card-title">Your Thoughts</span>
-          <span id="ctx-badge" class="badge">📰 No briefing loaded yet</span>
+
+      <!-- Sub-navigation -->
+      <div class="card" style="padding:0;overflow:hidden">
+        <div class="sub-nav">
+          <button class="sub-btn active" id="sub-btn-archive" onclick="showSubPanel('archive',this)">📚 Archive</button>
+          <button class="sub-btn" id="sub-btn-search"  onclick="showSubPanel('search',this)">🔍 Search Stories</button>
+          <button class="sub-btn" id="sub-btn-qa"      onclick="showSubPanel('qa',this)">⚖️ Legal Q&amp;A</button>
         </div>
-        <div class="card-body" style="padding:1rem 1.25rem">
-          <p style="font-family:Arial,sans-serif;font-size:13px;color:var(--ink3);margin-bottom:14px">
-            Ask questions about today's briefing or any saved archive. Select a past briefing from the left to load it into context.
-          </p>
-          <div class="thoughts-layout">
-            <!-- Archive sidebar -->
-            <div class="archive-sidebar">
-              <div class="section-lbl2">Briefing Archive</div>
-              <div id="archive-list">
-                <div style="font-family:Arial,sans-serif;font-size:12px;color:var(--ink3);padding:8px 0">No saved briefings yet.</div>
-              </div>
+      </div>
+
+      <!-- (a) Archive -->
+      <div class="sub-panel active" id="sub-archive">
+        <div id="archive-cards">
+          <div class="hint">No saved briefings yet. Generate your first briefing on the Daily Briefing tab.</div>
+        </div>
+      </div>
+
+      <!-- (b) Search Stories -->
+      <div class="sub-panel" id="sub-search">
+        <div class="card">
+          <div class="card-head"><span class="card-title">Search Stories</span></div>
+          <div class="card-body">
+            <p style="font-family:Arial,sans-serif;font-size:13px;color:var(--ink3);margin-bottom:12px">Search legal news from your selected sources and federal court cases from CourtListener.</p>
+            <div class="url-input-row">
+              <input id="search-input" type="text" placeholder="e.g. GDPR enforcement, patent infringement, SEC…" onkeydown="if(event.key==='Enter')searchStories()">
+              <button onclick="searchStories()">Search</button>
             </div>
-            <!-- Chat pane -->
-            <div class="chat-pane">
-              <div class="chat-area" id="chat-area">
-                <div class="msg bot">
-                  <div class="msg-bubble">Hello! I'm your legal intelligence assistant. Generate a briefing on the Daily Briefing tab, then come here to ask questions or explore past briefings from the archive.</div>
-                  <div class="msg-time">Now</div>
-                </div>
-              </div>
-              <div class="chat-input-row">
-                <textarea class="chat-input" id="chat-input" placeholder="Ask about today's briefing or any legal topic…" rows="1" onkeydown="chatKey(event)"></textarea>
-                <button class="send-btn" id="send-btn" onclick="sendMessage()">Send</button>
-              </div>
-            </div>
+            <div id="search-src-row" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;align-items:center"></div>
+            <div id="search-spin" style="display:none;margin-top:8px" class="hint"><span class="spinner dark"></span>&nbsp;Searching…</div>
+            <div id="search-results" class="result-list"></div>
           </div>
         </div>
       </div>
+
+      <!-- (c) Legal Q&A -->
+      <div class="sub-panel" id="sub-qa">
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title">Legal Q&amp;A</span>
+            <div class="qa-ctx-bar">
+              <span id="ctx-badge" class="badge">📰 No briefing loaded</span>
+              <button class="btn-ghost" style="font-size:11px;padding:4px 9px" onclick="showSubPanel('archive',document.getElementById('sub-btn-archive'))">Load from archive</button>
+            </div>
+          </div>
+          <div class="card-body" style="padding:0">
+            <div class="chat-area" id="chat-area">
+              <div class="msg bot">
+                <div class="msg-bubble">Hello! I'm your legal research assistant. I can answer questions using your loaded briefing, your selected news sources, and CourtListener (free federal case law). Load a briefing from the Archive tab or just ask any legal question.</div>
+                <div class="msg-time">Now</div>
+              </div>
+            </div>
+            <div class="chat-input-row">
+              <textarea class="chat-input" id="chat-input" placeholder="Ask a legal question…" rows="1" onkeydown="chatKey(event)"></textarea>
+              <button class="send-btn" id="send-btn" onclick="sendMessage()">Send</button>
+            </div>
+          </div>
+        </div>
+        <div class="note">⚖️ <span>Each question searches your news sources and <strong>CourtListener</strong> for relevant context before answering. Results are AI-synthesized — verify with primary sources.</span></div>
+      </div>
+
     </div>
 
     <!-- ══ SOURCES & TOPICS ══ -->
@@ -735,38 +797,112 @@ Only include these topics: ${activeTopics.join(',')}.`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ARCHIVE
+// RESEARCH HUB — SUB-NAVIGATION
+// ─────────────────────────────────────────────────────────────────────────────
+function showSubPanel(name, btn) {
+  ['archive','search','qa'].forEach(id => {
+    document.getElementById('sub-' + id).classList.remove('active');
+    document.getElementById('sub-btn-' + id).classList.remove('active');
+  });
+  document.getElementById('sub-' + name).classList.add('active');
+  (btn || document.getElementById('sub-btn-' + name)).classList.add('active');
+  if (name === 'search') renderSrcRow();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// (a) ARCHIVE
 // ─────────────────────────────────────────────────────────────────────────────
 function renderArchive() {
-  const list = document.getElementById('archive-list');
+  const el = document.getElementById('archive-cards');
   if (!S.archive.length) {
-    list.innerHTML = '<div style="font-family:Arial,sans-serif;font-size:12px;color:var(--ink3);padding:8px 0">No saved briefings yet.</div>';
+    el.innerHTML = '<div class="hint">No saved briefings yet. Generate your first briefing on the Daily Briefing tab.</div>';
     return;
   }
-  list.innerHTML = S.archive.map((e,i)=>`
-    <button class="archive-item ${i===0?'active':''}" onclick="loadArchive(${i})">
-      <div class="arc-date">${e.date} ${e.time}</div>
-      <div class="arc-topics">${e.topics.slice(0,40)}${e.topics.length>40?'…':''}</div>
-    </button>`).join('');
+  el.innerHTML = S.archive.map((e, i) => `
+    <div class="arc-card">
+      <div class="arc-card-head" onclick="toggleArcCard(${i})">
+        <div class="arc-card-meta">
+          <div class="arc-card-date">${e.date} · ${e.time}</div>
+          <div class="arc-card-topics">${e.topics}</div>
+        </div>
+        <span id="arc-tog-${i}" style="font-family:Arial,sans-serif;font-size:11px;color:var(--ink3);flex-shrink:0">▼ Expand</span>
+      </div>
+      <div class="arc-card-body" id="arc-body-${i}">${e.html}</div>
+      <div class="arc-card-footer">
+        <button class="btn-outline" onclick="loadArchiveToQA(${i})">Use in Legal Q&amp;A →</button>
+      </div>
+    </div>`).join('');
 }
 
-function loadArchive(idx) {
+function toggleArcCard(idx) {
+  const body = document.getElementById('arc-body-' + idx);
+  const tog  = document.getElementById('arc-tog-' + idx);
+  const open = body.classList.toggle('open');
+  tog.textContent = open ? '▲ Collapse' : '▼ Expand';
+}
+
+function loadArchiveToQA(idx) {
   const entry = S.archive[idx];
   if (!entry) return;
-  S.context = entry.context;
+  S.context  = entry.context || '';
+  S.articles = entry.articles || [];
   S.chatHist = [];
-
-  document.querySelectorAll('.archive-item').forEach((el,i)=>el.classList.toggle('active',i===idx));
-  document.getElementById('ctx-badge').textContent = `📰 Archive: ${entry.date} ${entry.time}`;
-
-  // Clear chat and add welcome message
+  document.getElementById('ctx-badge').textContent = `📰 ${entry.date} · ${entry.time}`;
   const area = document.getElementById('chat-area');
   area.innerHTML = '';
-  addMsg('bot', `Loaded briefing from ${entry.date} at ${entry.time}. Topics: ${entry.topics}. Ask me anything about it.`);
+  addMsg('bot', `Briefing from ${entry.date} loaded (${entry.topics}). Ask me anything about it, or any broader legal question — I'll also search CourtListener and your news sources.`);
+  showSubPanel('qa', document.getElementById('sub-btn-qa'));
+}
+
+function loadArchive(idx) { loadArchiveToQA(idx); } // backwards compat
+
+// ─────────────────────────────────────────────────────────────────────────────
+// (b) SEARCH STORIES
+// ─────────────────────────────────────────────────────────────────────────────
+function renderSrcRow() {
+  const row = document.getElementById('search-src-row');
+  const tags = ['CourtListener', ...S.urls].map(s =>
+    `<span class="badge" style="font-size:10px;gap:3px">🔗 ${s}</span>`).join('');
+  row.innerHTML = `<span style="font-family:Arial,sans-serif;font-size:11px;color:var(--ink3)">Searching:</span>${tags}`;
+}
+
+async function searchStories() {
+  const q = document.getElementById('search-input').value.trim();
+  if (!q) return;
+  document.getElementById('search-spin').style.display   = 'block';
+  document.getElementById('search-results').innerHTML    = '';
+  try {
+    const res  = await fetch('/api/research-search', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: q, urls: S.urls })
+    });
+    const data = await res.json();
+    renderSearchResults(data.results || []);
+  } catch(e) {
+    document.getElementById('search-results').innerHTML = `<div class="hint">Search failed — ${e.message}</div>`;
+  }
+  document.getElementById('search-spin').style.display = 'none';
+}
+
+function renderSearchResults(results) {
+  const el = document.getElementById('search-results');
+  if (!results.length) { el.innerHTML = '<div class="hint">No results found. Try different keywords.</div>'; return; }
+  el.innerHTML = results.map(r => {
+    const isCase  = r.type === 'case';
+    const safeUrl = (r.url || '').replace(/'/g,"\\'");
+    const safeTtl = (r.title || '').replace(/'/g,"\\'").replace(/`/g,'\\`');
+    return `<div class="result-card">
+      <span class="result-badge ${isCase?'case':'news'}">${isCase?'⚖ Case Law':'📰 News'}</span>
+      <span class="result-title" onclick="openArticle('${safeUrl}','${safeTtl}')">${r.title || 'Untitled'}</span>
+      <div class="result-meta">${[r.source||r.domain||'', r.court||'', r.date||''].filter(Boolean).join(' · ')}</div>
+      ${r.snippet ? `<div class="result-snippet">${r.snippet}</div>` : ''}
+      <a href="${r.url}" target="_blank" rel="noopener" style="font-family:Arial,sans-serif;font-size:11px;color:var(--accent);text-decoration:none">Open original ↗</a>
+    </div>`;
+  }).join('');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CHAT
+// (c) LEGAL Q&A
 // ─────────────────────────────────────────────────────────────────────────────
 function chatKey(e) { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();} }
 function ts() { return new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}); }
@@ -781,6 +917,13 @@ function addMsg(role, text) {
   return d;
 }
 
+function renderLinks(text) {
+  return text
+    .replace(/\n/g, '<br>')
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
+      '<a href="$2" target="_blank" rel="noopener" style="color:var(--accent)">$1</a>');
+}
+
 async function sendMessage() {
   const inp = document.getElementById('chat-input');
   const q   = inp.value.trim(); if (!q) return;
@@ -788,28 +931,53 @@ async function sendMessage() {
   document.getElementById('send-btn').disabled = true;
 
   addMsg('user', q);
-  S.chatHist.push({role:'user', content:q});
-  const loader = addMsg('bot','<span class="spinner dark"></span>');
+  S.chatHist.push({ role: 'user', content: q });
+  const loader = addMsg('bot', '<span class="spinner dark"></span>');
 
-  const ctx = S.context ? `\n\nToday's briefing:\n${S.context}` : '';
-  const system = `You are a senior legal intelligence assistant. Answer questions about legal briefings with precision. Draw on the briefing context below. For archive briefings, refer to them by their date.${ctx}`;
+  // Fetch legal context: CourtListener + user news sources
+  let legalCtx   = '';
+  const srcUsed  = [];
+  try {
+    const sr   = await fetch('/api/legal-search', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: q, urls: S.urls })
+    });
+    const sd = await sr.json();
+    if (sd.cases?.length) {
+      srcUsed.push('CourtListener');
+      legalCtx += '\n\nRelevant court cases (CourtListener):\n' +
+        sd.cases.map(c => `- ${c.title}${c.court?' ('+c.court+')':''}${c.date?', '+c.date:''}: ${c.snippet}\n  URL: ${c.url}`).join('\n');
+    }
+    if (sd.articles?.length) {
+      sd.articles.forEach(a => { if(!srcUsed.includes(a.domain)) srcUsed.push(a.domain); });
+      legalCtx += '\n\nRelevant news articles:\n' +
+        sd.articles.map(a => `- ${a.title} (${a.domain})\n  URL: ${a.link}`).join('\n');
+    }
+  } catch {}
+
+  const briefCtx = S.context ? `\n\nLoaded briefing:\n${S.context}` : '';
+  if (S.context) srcUsed.unshift('Briefing');
+
+  const system = `You are a senior legal research assistant. Answer questions with precision, citing specific cases, statutes, and sources. When you have a URL for a source, format it as [Source Name](URL) so it becomes a clickable link.${briefCtx}${legalCtx}
+
+Be concise but thorough. If information comes from CourtListener or a news source, note it. Distinguish between what the briefing says and what case law says.`;
 
   try {
-    const res = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 800,
-        system,
-        messages: S.chatHist
-      })
+    const res  = await fetch('/api/chat', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 1200, system, messages: S.chatHist })
     });
     const data = await res.json();
     if (data.error) throw new Error(data.error.message);
     const reply = data.content.map(b => b.text || '').join('');
-    S.chatHist.push({role:'assistant',content:reply});
-    loader.querySelector('.msg-bubble').innerHTML = reply.replace(/\n/g,'<br>');
+    S.chatHist.push({ role: 'assistant', content: reply });
+    loader.querySelector('.msg-bubble').innerHTML = renderLinks(reply);
+    if (srcUsed.length) {
+      const div = document.createElement('div');
+      div.className = 'msg-sources';
+      div.innerHTML = 'Sources consulted: ' + srcUsed.map(s => `<span class="src-pill">${s}</span>`).join('');
+      loader.appendChild(div);
+    }
   } catch(e) {
     loader.querySelector('.msg-bubble').textContent = 'Error — ' + e.message;
   }

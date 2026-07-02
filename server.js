@@ -130,6 +130,64 @@ app.post('/api/fetch-article', async (req, res) => {
   }
 });
 
+async function searchCourtListener(query) {
+  try {
+    const q   = encodeURIComponent(query);
+    const res = await fetch(
+      `https://www.courtlistener.com/api/rest/v4/search/?q=${q}&type=o&order_by=score+desc`,
+      { headers: { 'Accept': 'application/json', 'User-Agent': 'LexBrief/1.0' }, signal: AbortSignal.timeout(8000) }
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.results || []).slice(0, 5).map(r => ({
+      title:   r.caseName   || r.case_name   || 'Unnamed Case',
+      court:   r.court      || r.court_id    || '',
+      date:    r.dateFiled  || r.date_filed  || '',
+      url:     `https://www.courtlistener.com${r.absolute_url || '/'}`,
+      snippet: (r.snippet   || '').replace(/<[^>]+>/g, '').slice(0, 300),
+      type:    'case',
+      source:  'CourtListener'
+    }));
+  } catch(e) {
+    console.error('CourtListener error:', e.message);
+    return [];
+  }
+}
+
+// Search stories: user feeds + CourtListener
+app.post('/api/research-search', async (req, res) => {
+  const { query = '', urls = [] } = req.body;
+  if (!query.trim()) return res.json({ results: [] });
+
+  const q = query.toLowerCase();
+
+  // Search user feeds by keyword match in title
+  const feedResults = [];
+  for (const domain of urls) {
+    const articles = await fetchSiteArticles(domain);
+    const matches  = articles.filter(a => a.title.toLowerCase().includes(q));
+    feedResults.push(...matches.map(a => ({ title: a.title, url: a.link, source: a.domain, domain: a.domain, type: 'news' })));
+  }
+
+  const caseResults = await searchCourtListener(query);
+  res.json({ results: [...feedResults, ...caseResults] });
+});
+
+// Legal Q&A context: CourtListener + user feeds keyword match
+app.post('/api/legal-search', async (req, res) => {
+  const { query = '', urls = [] } = req.body;
+  const [cases, ...feedArrays] = await Promise.all([
+    searchCourtListener(query),
+    ...urls.map(async domain => {
+      const articles = await fetchSiteArticles(domain);
+      const q = query.toLowerCase();
+      return articles.filter(a => a.title.toLowerCase().split(' ').some(w => w.length > 4 && q.includes(w)));
+    })
+  ]);
+  const articles = feedArrays.flat().slice(0, 5);
+  res.json({ cases, articles });
+});
+
 app.post('/api/chat', async (req, res) => {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return res.status(500).json({ error: { message: 'ANTHROPIC_API_KEY not set on server.' } });
