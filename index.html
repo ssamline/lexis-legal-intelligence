@@ -366,9 +366,10 @@ const S = {
   keywords:  [],
   companies: [],
   urls:      ['law360.com','courthousenews.com'],
-  context:   '',        // current briefing context for chat
+  context:   '',
   chatHist:  [],
-  archive:   []         // [{date, label, topics, html, context}]
+  archive:   [],
+  articles:  []   // fetched news articles for current briefing [{topic,title,link,domain}]
 };
 
 const TOPIC_META = {
@@ -517,7 +518,7 @@ document.getElementById('url-in').addEventListener('keydown',e=>{ if(e.key==='En
 // ─────────────────────────────────────────────────────────────────────────────
 function todayKey() { return 'lb_today_' + new Date().toDateString(); }
 
-const CACHE_VERSION = 2; // bump when HTML structure changes
+const CACHE_VERSION = 3; // bump when HTML structure changes
 
 function startBriefing() {
   try {
@@ -533,6 +534,7 @@ function startBriefing() {
 }
 
 function restoreBriefing(entry) {
+  S.articles = entry.articles || [];
   const out = document.getElementById('brief-out');
   out.innerHTML = entry.html;
   out.style.display = 'block';
@@ -572,24 +574,26 @@ async function generateBriefing(retries = 1) {
   if (S.companies.length)   bizInstr += ` Tracked companies: ${S.companies.join(', ')}.`;
   bizInstr += ` Each biz item: {type:"opportunity"|"risk",company:"name or empty",sector:"name or empty",text:"1-2 sentences"}.`;
 
-  // Fetch real news articles first
+  // Fetch real news articles from user's chosen sources
+  S.articles = [];
   let articleCtx = '';
   try {
     const newsRes  = await fetch('/api/search-news', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ topics: activeTopics, keywords: S.keywords })
+      body: JSON.stringify({ topics: activeTopics, keywords: S.keywords, urls: S.urls })
     });
     const newsData = await newsRes.json();
-    if (newsData.articles?.length) {
-      articleCtx = '\n\nReal news articles retrieved today (base each bullet on one of these and use its exact URL as "source"):\n' +
-        newsData.articles.map((a, i) => `${i+1}. [${a.topic}] ${a.title}\n   URL: ${a.link}`).join('\n');
+    S.articles = newsData.articles || [];
+    if (S.articles.length) {
+      articleCtx = '\n\nAvailable articles (reference ONLY by number):\n' +
+        S.articles.map((a, i) => `${i+1}. [${a.topic}] ${a.title}`).join('\n');
     }
   } catch(e) { /* proceed without real articles */ }
 
   const system = `You are a senior legal news analyst. Generate a concise daily legal briefing for ${today}. Topics: ${topicNames}.${kwExtra} 2-3 bullets + 1 short paragraph per section.${bizInstr}${articleCtx}
-IMPORTANT: Each bullet MUST use a real article from the list above. Set "source" to that article's exact URL. If no articles are listed, use a plausible URL from: ${sources}.
+${S.articles.length ? `IMPORTANT: Each bullet MUST reference one article from the numbered list above. Use "ref": <number> (integer only, 1-${S.articles.length}). Do NOT include URLs in the JSON.` : ''}
 Reply ONLY in valid JSON, no markdown fences, no extra text:
-{"sections":[{"topic":"ip","bullets":[{"text":"one-sentence summary of the article","source":"https://full-article-url"}],"prose":"...","biz":[{"type":"opportunity","company":"","sector":"","text":"..."}]}]}
+{"sections":[{"topic":"ip","bullets":[{"text":"one-sentence summary","ref":1}],"prose":"...","biz":[{"type":"opportunity","company":"","sector":"","text":"..."}]}]}
 Only include these topics: ${activeTopics.join(',')}.`;
 
   try {
@@ -619,24 +623,20 @@ Only include these topics: ${activeTopics.join(',')}.`;
     if (!clean) throw new Error('Empty AI response — verify ANTHROPIC_API_KEY is set in Render environment variables.');
     const jsonStr = clean.slice(clean.indexOf('{'), clean.lastIndexOf('}')+1);
     let parsed;
-    try {
-      parsed = JSON.parse(jsonStr);
-    } catch(jsonErr) {
-      // Repair common issue: unescaped double quotes inside JSON string values
-      const repaired = jsonStr.replace(
-        /("(?:text|source|prose|company|sector|type)"\s*:\s*")([\s\S]*?)("(?:\s*[,}\]]))/g,
-        (_, key, val, end) => key + val.replace(/(?<!\\)"/g, '\\"') + end
-      );
-      try { parsed = JSON.parse(repaired); }
-      catch(e2) { throw new Error('AI returned malformed JSON — please try Renew again.'); }
-    }
+    try { parsed = JSON.parse(jsonStr); }
+    catch(e) { throw new Error('AI returned malformed JSON — please try Renew again.'); }
 
-    // Normalize bullets to {text, source} objects regardless of AI output format
-    const urls = S.urls.length ? S.urls : ['law360.com'];
+    // Normalize bullets: resolve "ref" integer → real article URL
+    const fallbackUrls = S.urls.length ? S.urls : ['law360.com'];
     parsed.sections.forEach(s => {
       s.bullets = (s.bullets || []).map((b, i) => {
-        if (typeof b === 'string') return { text: b, source: urls[i % urls.length] };
-        return { text: b.text || String(b), source: b.source || urls[i % urls.length] };
+        const text   = typeof b === 'string' ? b : (b.text || String(b));
+        const ref    = typeof b === 'object' ? (b.ref || b.source) : null;
+        const art    = (typeof ref === 'number') ? S.articles[ref - 1] : null;
+        const source = art
+          ? art.link
+          : ('https://' + fallbackUrls[i % fallbackUrls.length]);
+        return { text, source };
       });
     });
 
@@ -696,13 +696,14 @@ Only include these topics: ${activeTopics.join(',')}.`;
     // Save to archive
     const now = new Date();
     const entry = {
-      v:     CACHE_VERSION,
-      id:    now.getTime(),
-      date:  now.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}),
-      time:  now.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}),
-      topics: activeTopics.map(t=>TOPIC_META[t].label).join(', '),
-      html:  out.innerHTML,
-      context: S.context
+      v:       CACHE_VERSION,
+      id:      now.getTime(),
+      date:    now.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}),
+      time:    now.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}),
+      topics:  activeTopics.map(t=>TOPIC_META[t].label).join(', '),
+      html:    out.innerHTML,
+      context: S.context,
+      articles: S.articles
     };
     S.archive.unshift(entry);
     if (S.archive.length > 30) S.archive.length = 30;

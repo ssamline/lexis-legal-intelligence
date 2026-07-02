@@ -12,36 +12,48 @@ const TOPIC_QUERIES = {
   corp: 'corporate merger acquisition deal business law',
 };
 
-async function fetchNewsArticles(topics, keywords) {
+function parseRssItems(xml, topic, maxItems = 4) {
+  const out = [];
+  const items = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)].slice(0, maxItems);
+  for (const [, item] of items) {
+    const title = (item.match(/<title>([\s\S]*?)<\/title>/)?.[1] || '')
+      .replace(/<!\[CDATA\[|\]\]>/g, '')
+      .replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'")
+      .replace(/ - [^-]{2,40}$/, '')   // strip "- Publisher Name" suffix
+      .replace(/["\\\t\r\n]/g, ' ').replace(/\s{2,}/g,' ').trim();
+    const link = (item.match(/<link>(https?:\/\/[^\s<]+)/)?.[1] ||
+                  item.match(/<guid[^>]*>(https?:\/\/[^\s<]+)<\/guid>/)?.[1] || '').trim();
+    const domain = (item.match(/<source[^>]+url=["'](https?:\/\/[^"'/]+)/)?.[1] || '').replace(/^https?:\/\//,'');
+    if (title && link) out.push({ topic, title, link, domain });
+  }
+  return out;
+}
+
+async function fetchNewsArticles(topics, keywords, sourceDomains) {
   const results = [];
+  const seen    = new Set();
+  const domains = sourceDomains && sourceDomains.length ? sourceDomains : [''];
+
   for (const topic of topics) {
     const base  = TOPIC_QUERIES[topic] || topic + ' law';
     const extra = keywords.slice(0, 2).join(' ');
-    const q     = encodeURIComponent(`${base} ${extra}`.trim());
-    try {
-      const rss = await fetch(
-        `https://news.google.com/rss/search?q=${q}&hl=en-US&gl=US&ceid=US:en`,
-        { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; LexBrief/1.0)' }, signal: AbortSignal.timeout(6000) }
-      );
-      if (!rss.ok) continue;
-      const xml   = await rss.text();
-      const items = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)].slice(0, 5);
-      for (const [, item] of items) {
-        const title = (item.match(/<title>([\s\S]*?)<\/title>/)?.[1] || '')
-          .replace(/<!\[CDATA\[|\]\]>/g, '')
-          .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
-          .replace(/ - [^-]+$/, '')   // strip "- Publisher Name" suffix Google News appends
-          .replace(/["\\\t\r\n]/g, ' ') // remove chars that break JSON when Claude echoes them
-          .replace(/\s{2,}/g, ' ').trim();
-        // Google News RSS puts the redirect URL in <link> after the self-closing atom link
-        const link = (item.match(/<link>(https?:\/\/[^\s<]+)/)?.[1] ||
-                      item.match(/<guid[^>]*>(https?:\/\/[^\s<]+)<\/guid>/)?.[1] || '').trim();
-        if (title && link && !results.find(r => r.link === link)) {
-          results.push({ topic, title, link });
+
+    for (const domain of domains) {
+      const siteFilter = domain ? ` site:${domain}` : '';
+      const q = encodeURIComponent(`${base} ${extra}${siteFilter}`.trim());
+      try {
+        const rss = await fetch(
+          `https://news.google.com/rss/search?q=${q}&hl=en-US&gl=US&ceid=US:en`,
+          { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; LexBrief/1.0)' }, signal: AbortSignal.timeout(7000) }
+        );
+        if (!rss.ok) continue;
+        const xml = await rss.text();
+        for (const a of parseRssItems(xml, topic, 3)) {
+          if (!seen.has(a.link)) { seen.add(a.link); results.push(a); }
         }
+      } catch (e) {
+        console.error('RSS fetch error:', topic, domain, e.message);
       }
-    } catch (e) {
-      console.error('RSS fetch error for topic', topic, ':', e.message);
     }
   }
   return results;
@@ -90,9 +102,9 @@ app.post('/api/fetch-article', async (req, res) => {
 });
 
 app.post('/api/search-news', async (req, res) => {
-  const { topics = [], keywords = [] } = req.body;
+  const { topics = [], keywords = [], urls = [] } = req.body;
   try {
-    const articles = await fetchNewsArticles(topics, keywords);
+    const articles = await fetchNewsArticles(topics, keywords, urls);
     res.json({ articles });
   } catch (e) {
     res.json({ articles: [] });
