@@ -29,7 +29,10 @@ async function fetchNewsArticles(topics, keywords) {
       for (const [, item] of items) {
         const title = (item.match(/<title>([\s\S]*?)<\/title>/)?.[1] || '')
           .replace(/<!\[CDATA\[|\]\]>/g, '')
-          .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').trim();
+          .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+          .replace(/ - [^-]+$/, '')   // strip "- Publisher Name" suffix Google News appends
+          .replace(/["\\\t\r\n]/g, ' ') // remove chars that break JSON when Claude echoes them
+          .replace(/\s{2,}/g, ' ').trim();
         // Google News RSS puts the redirect URL in <link> after the self-closing atom link
         const link = (item.match(/<link>(https?:\/\/[^\s<]+)/)?.[1] ||
                       item.match(/<guid[^>]*>(https?:\/\/[^\s<]+)<\/guid>/)?.[1] || '').trim();

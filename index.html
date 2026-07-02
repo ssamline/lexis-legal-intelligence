@@ -617,7 +617,19 @@ Only include these topics: ${activeTopics.join(',')}.`;
 
     const clean = raw.replace(/```json\n?|```/g,'').trim();
     if (!clean) throw new Error('Empty AI response — verify ANTHROPIC_API_KEY is set in Render environment variables.');
-    const parsed = JSON.parse(clean.slice(clean.indexOf('{'), clean.lastIndexOf('}')+1));
+    const jsonStr = clean.slice(clean.indexOf('{'), clean.lastIndexOf('}')+1);
+    let parsed;
+    try {
+      parsed = JSON.parse(jsonStr);
+    } catch(jsonErr) {
+      // Repair common issue: unescaped double quotes inside JSON string values
+      const repaired = jsonStr.replace(
+        /("(?:text|source|prose|company|sector|type)"\s*:\s*")([\s\S]*?)("(?:\s*[,}\]]))/g,
+        (_, key, val, end) => key + val.replace(/(?<!\\)"/g, '\\"') + end
+      );
+      try { parsed = JSON.parse(repaired); }
+      catch(e2) { throw new Error('AI returned malformed JSON — please try Renew again.'); }
+    }
 
     // Normalize bullets to {text, source} objects regardless of AI output format
     const urls = S.urls.length ? S.urls : ['law360.com'];
