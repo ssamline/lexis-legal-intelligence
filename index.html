@@ -1080,48 +1080,95 @@ async function listenBriefing() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SONG — Claude writes lyrics, single button copies + opens Suno in one click
-// clipboard.writeText and window.open both require user-gesture context,
-// so we do them inside the onclick of the launch button, not after an await.
+// SONG — tries HuggingFace AI music (in-app audio); Tone.js FM synth fallback
 // ─────────────────────────────────────────────────────────────────────────────
-let _songLyrics = '';
-let _songStyle  = '';
+let _toneTransport = null;
 
-function launchSuno() {
-  // Called from a button click → user-gesture context → both APIs work reliably
-  const lyrics = _songLyrics;
-  if (!lyrics) return;
-
-  // Copy lyrics to clipboard
-  const copyViaExecCommand = () => {
-    const ta = document.createElement('textarea');
-    ta.value = lyrics;
-    ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none';
-    document.body.appendChild(ta);
-    ta.focus(); ta.select();
-    try { document.execCommand('copy'); } catch {}
-    document.body.removeChild(ta);
-  };
-  try {
-    navigator.clipboard.writeText(lyrics).catch(copyViaExecCommand);
-  } catch { copyViaExecCommand(); }
-
-  // Open Suno in a new tab
-  window.open('https://suno.com/create', '_blank');
-
-  // Update button to confirm
-  const btn = document.getElementById('suno-launch-btn');
-  if (btn) {
-    btn.textContent = '✅ Suno opened & lyrics copied — switch tabs!';
-    btn.style.background = '#16a34a';
-    btn.disabled = true;
+function stopSong() {
+  if (window.Tone && _toneTransport) {
+    Tone.Transport.stop(); Tone.Transport.cancel();
+    _toneTransport = null;
   }
+  const b = document.getElementById('song-btn');
+  const s = document.getElementById('audio-status');
+  if (b) { b.textContent = '♪ Song'; b.onclick = startSong; }
+  if (s) s.textContent = '';
+}
+
+async function _playToneFallback(text, statusEl, btn) {
+  if (!window.Tone) {
+    statusEl.textContent = '🎵 Loading music engine…';
+    await new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js';
+      s.onload = res; s.onerror = () => rej(new Error('Could not load Tone.js'));
+      document.head.appendChild(s);
+    });
+  }
+  await Tone.start();
+  Tone.Transport.cancel(); Tone.Transport.stop();
+
+  const seed = Math.abs([...text.slice(0,120)].reduce((h,c)=>(h*31+c.charCodeAt(0))|0,0));
+
+  const reverb  = new Tone.Reverb({ decay: 2.5, wet: 0.35 }).toDestination();
+  const delay   = new Tone.PingPongDelay('8n', 0.18).connect(reverb);
+  const limiter = new Tone.Limiter(-4).connect(delay);
+
+  const synth = new Tone.PolySynth(Tone.FMSynth, {
+    harmonicity: 3, modulationIndex: 10,
+    oscillator: { type: 'sine' },
+    envelope: { attack: 0.04, decay: 0.4, sustain: 0.2, release: 1.6 },
+    modulation: { type: 'sine' },
+    modulationEnvelope: { attack: 0.01, decay: 0.3, sustain: 0.1, release: 0.5 }
+  }).connect(limiter);
+  synth.volume.value = -8;
+
+  const bass = new Tone.MonoSynth({
+    oscillator: { type: 'sine' },
+    envelope: { attack: 0.05, decay: 0.4, sustain: 0.3, release: 1 }
+  }).connect(limiter);
+  bass.volume.value = -10;
+
+  const PROGS = [
+    { ch:[['C4','E4','G4'],['G3','B3','D4'],['A3','C4','E4'],['F3','A3','C4']], bs:['C3','G2','A2','F2'], ml:['C5','E5','G5','A5','G5','E5','D5','C5'] },
+    { ch:[['D4','F#4','A4'],['A3','C#4','E4'],['B3','D4','F#4'],['G3','B3','D4']], bs:['D3','A2','B2','G2'], ml:['D5','F#5','A5','B5','A5','F#5','E5','D5'] },
+    { ch:[['G4','B4','D5'],['D4','F#4','A4'],['E4','G4','B4'],['C4','E4','G4']], bs:['G3','D3','E3','C3'], ml:['G5','B5','D6','E6','D6','B5','A5','G5'] },
+  ];
+  const pr = PROGS[seed % PROGS.length];
+  Tone.Transport.bpm.value = 90 + (seed % 26);
+
+  for (let b = 0; b < 8; b++) {
+    const ci = b % 4;
+    Tone.Transport.schedule(t => synth.triggerAttackRelease(pr.ch[ci], '2n', t, 0.5),  `${b}:0:0`);
+    Tone.Transport.schedule(t => synth.triggerAttackRelease(pr.ch[ci], '4n', t, 0.33), `${b}:2:0`);
+    Tone.Transport.schedule(t => bass.triggerAttackRelease(pr.bs[ci],  '4n', t, 0.7),  `${b}:0:0`);
+    Tone.Transport.schedule(t => bass.triggerAttackRelease(pr.bs[ci],  '4n', t, 0.5),  `${b}:2:0`);
+    const mi = (seed + b * 3) % pr.ml.length;
+    Tone.Transport.schedule(t => synth.triggerAttackRelease(pr.ml[mi],              '8n', t, 0.65), `${b}:0:2`);
+    Tone.Transport.schedule(t => synth.triggerAttackRelease(pr.ml[(mi+2)%pr.ml.length], '8n', t, 0.55), `${b}:2:2`);
+  }
+
+  Tone.Transport.schedule(() => {
+    synth.releaseAll();
+    setTimeout(() => { try { synth.dispose(); bass.dispose(); reverb.dispose(); delay.dispose(); limiter.dispose(); } catch {} }, 2000);
+    _toneTransport = null;
+    btn.textContent = '♪ Song'; btn.onclick = startSong;
+    statusEl.textContent = '🎵 Song complete';
+  }, '8:0:0');
+
+  _toneTransport = Tone.Transport;
+  Tone.Transport.start();
+  btn.textContent = '⏹ Stop'; btn.onclick = stopSong;
+  statusEl.textContent = '🎵 Playing in-browser song — click ⏹ Stop to end';
 }
 
 async function startSong() {
   const btn      = document.getElementById('song-btn');
   const bar      = document.getElementById('audio-bar');
   const statusEl = document.getElementById('audio-status');
+  const audioEl  = document.getElementById('brief-audio');
+
+  if (_toneTransport) { stopSong(); return; }
 
   let text = '';
   document.querySelectorAll('#brief-out .brief-section').forEach(sec => {
@@ -1134,54 +1181,36 @@ async function startSong() {
   btn.innerHTML     = '<span class="spinner dark"></span>';
   bar.style.display = 'block';
   bar.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  statusEl.innerHTML = '<span style="color:var(--muted)">🎵 Writing lyrics from your briefing…</span>';
+  statusEl.textContent = '🎵 Composing song… (30-60s first time)';
 
-  let lyrics = '', style = 'upbeat energetic pop, professional';
   try {
-    const res  = await fetch('/api/chat', {
+    const res = await fetch('/api/song-generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 300,
-        system: 'You are a creative songwriter. Given a legal news briefing, write freestyle song lyrics and a short Suno style prompt. Respond ONLY as JSON: {"lyrics":"line1\\nline2\\nline3\\nline4\\nline5","style":"2-5 word Suno style"}',
-        messages: [{ role: 'user', content: `Song lyrics from this legal briefing:\n\n${text.slice(0, 700)}` }]
-      })
+      body: JSON.stringify({ text })
     });
-    const data = await res.json();
-    const raw  = (data.content?.[0]?.text || '').trim();
-    try {
-      const m = raw.match(/\{[\s\S]*?\}/);
-      if (m) { const p = JSON.parse(m[0]); lyrics = p.lyrics || ''; style = p.style || style; }
-    } catch {}
-    if (!lyrics) lyrics = raw.replace(/```[\s\S]*?```/g, '').slice(0, 300).trim();
-  } catch {}
-  if (!lyrics) lyrics = text.slice(0, 250);
 
-  _songLyrics = lyrics;
-  _songStyle  = style;
+    const ct = res.headers.get('content-type') || '';
+    if (ct.includes('audio')) {
+      // HuggingFace returned real AI music — play it directly
+      const blob = await res.blob();
+      audioEl.src = URL.createObjectURL(blob);
+      await audioEl.play().catch(() => {});
+      statusEl.textContent = '🎵 AI-generated song playing';
+      btn.disabled = false; btn.textContent = '♪ Song'; btn.onclick = startSong;
+      return;
+    }
 
-  const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    // Server signalled fallback (rate limit, 401, etc.) — use in-browser synth
+    const data = await res.json().catch(() => ({}));
+    console.info('[Song] Using in-browser fallback:', data.error || res.status);
 
-  statusEl.innerHTML = `
-    <div style="font-weight:600;color:var(--accent);margin-bottom:10px">🎵 Lyrics ready — click below to go to Suno:</div>
-    <div style="white-space:pre-wrap;font-style:italic;line-height:1.8;
-      padding:12px 14px;background:rgba(0,0,0,0.06);border-radius:8px;font-size:13px;
-      margin-bottom:10px;border-left:3px solid var(--accent)">${esc(lyrics)}</div>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:12px">
-      Suno style: <b>${esc(style)}</b>
-    </div>
-    <button id="suno-launch-btn" onclick="launchSuno()"
-      style="width:100%;padding:10px 16px;background:var(--accent);color:#fff;border:none;
-        border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:.02em">
-      📋 Copy Lyrics &amp; Open Suno ↗
-    </button>
-    <div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.6">
-      Then in Suno → <b>Custom</b> → paste (<kbd style="background:rgba(0,0,0,0.1);padding:1px 5px;border-radius:3px">Ctrl+V</kbd>) → enter style above → <b>Create</b>
-    </div>`;
+  } catch(e) {
+    console.info('[Song] Server unreachable, using in-browser fallback:', e.message);
+  }
 
-  btn.disabled    = false;
-  btn.textContent = '♪ Song';
+  btn.disabled = false; btn.onclick = startSong;
+  await _playToneFallback(text, statusEl, btn);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

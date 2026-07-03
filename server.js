@@ -188,50 +188,47 @@ app.post('/api/legal-search', async (req, res) => {
   res.json({ cases, articles });
 });
 
-// Song generation: Claude writes lyrics → HuggingFace MusicGen composes (free)
+// Song generation via HuggingFace MusicGen — token optional (anonymous has low rate limit)
 app.post('/api/song-generate', async (req, res) => {
-  const hfToken      = process.env.HUGGINGFACE_TOKEN;
+  const hfToken      = process.env.HUGGINGFACE_TOKEN; // optional — improves rate limits
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
-  if (!hfToken) return res.status(500).json({ error: 'HUGGINGFACE_TOKEN not configured. Get a free token at huggingface.co → Settings → Access Tokens.' });
 
   const { text } = req.body;
   if (!text?.trim()) return res.status(400).json({ error: 'No text provided.' });
 
-  // Step 1: Generate song lyrics with Claude
-  let lyrics = text.slice(0, 250);
+  // Generate a short lyric-style music prompt with Claude
+  let prompt = `upbeat energetic legal news jingle, major key, bright professional vocals. ${text.slice(0, 150)}`;
   if (anthropicKey) {
     try {
       const lr = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
         body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 150,
-          system: 'You are a creative songwriter. Given a legal news briefing, write 4-5 short punchy rhyming song lyrics capturing the key legal developments. Professional but catchy. Output ONLY the lyrics — no titles, no labels.',
-          messages: [{ role: 'user', content: text.slice(0, 600) }]
+          model: 'claude-haiku-4-5-20251001', max_tokens: 120,
+          system: 'Write 3-4 short punchy rhyming song lyrics about the legal news. Output ONLY the lyrics.',
+          messages: [{ role: 'user', content: text.slice(0, 500) }]
         }),
         signal: AbortSignal.timeout(12000)
       });
-      if (lr.ok) { const d = await lr.json(); lyrics = d.content?.[0]?.text?.trim() || lyrics; }
+      if (lr.ok) {
+        const d = await lr.json();
+        const l = d.content?.[0]?.text?.trim();
+        if (l) prompt = `upbeat energetic pop, professional news song, sung vocals. ${l.slice(0, 200)}`;
+      }
     } catch {}
   }
 
-  // Step 2: Call HuggingFace MusicGen (free tier — retries while model warms up)
-  const prompt = `upbeat energetic news podcast jingle, major key, bright and professional. ${lyrics}`;
-  for (let attempt = 0; attempt < 8; attempt++) {
+  const hfHeaders = { 'Content-Type': 'application/json' };
+  if (hfToken) hfHeaders['Authorization'] = `Bearer ${hfToken}`;
+
+  for (let attempt = 0; attempt < 6; attempt++) {
     try {
       const hfRes = await fetch(
         'https://api-inference.huggingface.co/models/facebook/musicgen-small',
-        {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${hfToken}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ inputs: prompt }),
-          signal: AbortSignal.timeout(90000)
-        }
+        { method: 'POST', headers: hfHeaders, body: JSON.stringify({ inputs: prompt }), signal: AbortSignal.timeout(90000) }
       );
 
       if (hfRes.status === 503) {
-        // Model is loading — wait the estimated time then retry
         const info = await hfRes.json().catch(() => ({}));
         const wait = Math.min((info.estimated_time || 20) * 1000, 25000);
         console.log(`[HF] Model loading, waiting ${Math.round(wait/1000)}s (attempt ${attempt+1})`);
@@ -239,22 +236,26 @@ app.post('/api/song-generate', async (req, res) => {
         continue;
       }
 
-      if (!hfRes.ok) {
-        const msg = await hfRes.text();
-        return res.status(hfRes.status).json({ error: `HuggingFace: ${msg.slice(0, 200)}` });
+      if (hfRes.status === 401) {
+        // Anonymous quota exhausted — tell client to use browser fallback
+        return res.status(401).json({ fallback: true, error: 'HuggingFace rate limit — using in-browser music.' });
       }
 
-      // Success — stream the audio back to the client
+      if (!hfRes.ok) {
+        const msg = await hfRes.text();
+        return res.status(hfRes.status).json({ fallback: true, error: `Music API: ${msg.slice(0, 150)}` });
+      }
+
       const buf = await hfRes.arrayBuffer();
       res.setHeader('Content-Type', 'audio/flac');
       res.setHeader('Cache-Control', 'no-store');
       return res.send(Buffer.from(buf));
 
     } catch(e) {
-      if (attempt === 7) return res.status(500).json({ error: e.message });
+      if (attempt === 5) return res.status(500).json({ fallback: true, error: e.message });
     }
   }
-  res.status(503).json({ error: 'Model still warming up — wait ~1 minute and try again.' });
+  res.status(503).json({ fallback: true, error: 'Model warming up.' });
 });
 
 app.post('/api/tts', async (req, res) => {
