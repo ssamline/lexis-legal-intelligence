@@ -188,17 +188,35 @@ app.post('/api/legal-search', async (req, res) => {
   res.json({ cases, articles });
 });
 
+// Discover the latest version hash for MusicGen on Replicate
+async function getMusicGenVersion(replicateKey) {
+  const candidates = ['meta/musicgen', 'facebook/musicgen'];
+  for (const model of candidates) {
+    try {
+      const r = await fetch(`https://api.replicate.com/v1/models/${model}/versions`, {
+        headers: { 'Authorization': `Bearer ${replicateKey}` },
+        signal: AbortSignal.timeout(8000)
+      });
+      if (!r.ok) continue;
+      const d = await r.json();
+      const v = d.results?.[0]?.id;
+      if (v) { console.log(`[Replicate] Using ${model} @ ${v}`); return v; }
+    } catch {}
+  }
+  return null;
+}
+
 // Song generation: Claude writes lyrics → Replicate MusicGen composes
 app.post('/api/song-start', async (req, res) => {
-  const replicateKey  = process.env.REPLICATE_API_TOKEN;
-  const anthropicKey  = process.env.ANTHROPIC_API_KEY;
+  const replicateKey = process.env.REPLICATE_API_TOKEN;
+  const anthropicKey = process.env.ANTHROPIC_API_KEY;
   if (!replicateKey) return res.status(500).json({ error: 'REPLICATE_API_TOKEN not configured in Render environment variables.' });
 
   const { text } = req.body;
   if (!text?.trim()) return res.status(400).json({ error: 'No text provided.' });
 
   // Step 1: Generate song lyrics with Claude
-  let lyrics = text.slice(0, 300); // plain-text fallback
+  let lyrics = text.slice(0, 300);
   if (anthropicKey) {
     try {
       const lyricRes = await fetch('https://api.anthropic.com/v1/messages', {
@@ -207,7 +225,7 @@ app.post('/api/song-start', async (req, res) => {
         body: JSON.stringify({
           model: 'claude-haiku-4-5-20251001',
           max_tokens: 180,
-          system: 'You are a creative songwriter. Given a legal news briefing, write 4-6 short, punchy, rhyming song lyrics that capture the key legal developments. Professional but catchy. Output ONLY the lyrics — no titles, no labels, no extra text.',
+          system: 'You are a creative songwriter. Given a legal news briefing, write 4-6 short punchy rhyming song lyrics capturing the key legal developments. Professional but catchy. Output ONLY the lyrics — no titles, no labels, no extra text.',
           messages: [{ role: 'user', content: text.slice(0, 800) }]
         }),
         signal: AbortSignal.timeout(15000)
@@ -219,20 +237,21 @@ app.post('/api/song-start', async (req, res) => {
     } catch {}
   }
 
-  // Step 2: Queue Replicate MusicGen prediction
+  // Step 2: Discover latest MusicGen version on Replicate
+  const version = await getMusicGenVersion(replicateKey);
+  if (!version) {
+    return res.status(404).json({ error: 'MusicGen model not found on your Replicate account. Visit replicate.com and ensure your token has access.' });
+  }
+
+  // Step 3: Create prediction using standard predictions endpoint + version hash
   const musicPrompt = `upbeat professional news podcast song, major key, clear sung vocals, energetic and concise. Lyrics: ${lyrics}`;
   try {
-    const predRes = await fetch('https://api.replicate.com/v1/models/meta/musicgen/predictions', {
+    const predRes = await fetch('https://api.replicate.com/v1/predictions', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${replicateKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        input: {
-          prompt: musicPrompt,
-          duration: 30,
-          model_version: 'stereo-melody-large',
-          output_format: 'mp3',
-          normalization_strategy: 'peak'
-        }
+        version,
+        input: { prompt: musicPrompt, duration: 30, output_format: 'mp3' }
       }),
       signal: AbortSignal.timeout(15000)
     });
