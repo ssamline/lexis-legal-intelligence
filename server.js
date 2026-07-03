@@ -188,98 +188,73 @@ app.post('/api/legal-search', async (req, res) => {
   res.json({ cases, articles });
 });
 
-// Discover the latest version hash for MusicGen on Replicate
-async function getMusicGenVersion(replicateKey) {
-  const candidates = ['meta/musicgen', 'facebook/musicgen'];
-  for (const model of candidates) {
-    try {
-      const r = await fetch(`https://api.replicate.com/v1/models/${model}/versions`, {
-        headers: { 'Authorization': `Bearer ${replicateKey}` },
-        signal: AbortSignal.timeout(8000)
-      });
-      if (!r.ok) continue;
-      const d = await r.json();
-      const v = d.results?.[0]?.id;
-      if (v) { console.log(`[Replicate] Using ${model} @ ${v}`); return v; }
-    } catch {}
-  }
-  return null;
-}
-
-// Song generation: Claude writes lyrics → Replicate MusicGen composes
-app.post('/api/song-start', async (req, res) => {
-  const replicateKey = process.env.REPLICATE_API_TOKEN;
+// Song generation: Claude writes lyrics → HuggingFace MusicGen composes (free)
+app.post('/api/song-generate', async (req, res) => {
+  const hfToken      = process.env.HUGGINGFACE_TOKEN;
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
-  if (!replicateKey) return res.status(500).json({ error: 'REPLICATE_API_TOKEN not configured in Render environment variables.' });
+  if (!hfToken) return res.status(500).json({ error: 'HUGGINGFACE_TOKEN not configured. Get a free token at huggingface.co → Settings → Access Tokens.' });
 
   const { text } = req.body;
   if (!text?.trim()) return res.status(400).json({ error: 'No text provided.' });
 
   // Step 1: Generate song lyrics with Claude
-  let lyrics = text.slice(0, 300);
+  let lyrics = text.slice(0, 250);
   if (anthropicKey) {
     try {
-      const lyricRes = await fetch('https://api.anthropic.com/v1/messages', {
+      const lr = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
         body: JSON.stringify({
           model: 'claude-haiku-4-5-20251001',
-          max_tokens: 180,
-          system: 'You are a creative songwriter. Given a legal news briefing, write 4-6 short punchy rhyming song lyrics capturing the key legal developments. Professional but catchy. Output ONLY the lyrics — no titles, no labels, no extra text.',
-          messages: [{ role: 'user', content: text.slice(0, 800) }]
+          max_tokens: 150,
+          system: 'You are a creative songwriter. Given a legal news briefing, write 4-5 short punchy rhyming song lyrics capturing the key legal developments. Professional but catchy. Output ONLY the lyrics — no titles, no labels.',
+          messages: [{ role: 'user', content: text.slice(0, 600) }]
         }),
-        signal: AbortSignal.timeout(15000)
+        signal: AbortSignal.timeout(12000)
       });
-      if (lyricRes.ok) {
-        const ld = await lyricRes.json();
-        lyrics = ld.content?.[0]?.text?.trim() || lyrics;
-      }
+      if (lr.ok) { const d = await lr.json(); lyrics = d.content?.[0]?.text?.trim() || lyrics; }
     } catch {}
   }
 
-  // Step 2: Discover latest MusicGen version on Replicate
-  const version = await getMusicGenVersion(replicateKey);
-  if (!version) {
-    return res.status(404).json({ error: 'MusicGen model not found on your Replicate account. Visit replicate.com and ensure your token has access.' });
-  }
+  // Step 2: Call HuggingFace MusicGen (free tier — retries while model warms up)
+  const prompt = `upbeat energetic news podcast jingle, major key, bright and professional. ${lyrics}`;
+  for (let attempt = 0; attempt < 8; attempt++) {
+    try {
+      const hfRes = await fetch(
+        'https://api-inference.huggingface.co/models/facebook/musicgen-small',
+        {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${hfToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ inputs: prompt }),
+          signal: AbortSignal.timeout(90000)
+        }
+      );
 
-  // Step 3: Create prediction using standard predictions endpoint + version hash
-  const musicPrompt = `upbeat professional news podcast song, major key, clear sung vocals, energetic and concise. Lyrics: ${lyrics}`;
-  try {
-    const predRes = await fetch('https://api.replicate.com/v1/predictions', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${replicateKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        version,
-        input: { prompt: musicPrompt, duration: 30, output_format: 'mp3' }
-      }),
-      signal: AbortSignal.timeout(15000)
-    });
-    if (!predRes.ok) {
-      const err = await predRes.json().catch(() => ({}));
-      return res.status(predRes.status).json({ error: err.detail || JSON.stringify(err) });
+      if (hfRes.status === 503) {
+        // Model is loading — wait the estimated time then retry
+        const info = await hfRes.json().catch(() => ({}));
+        const wait = Math.min((info.estimated_time || 20) * 1000, 25000);
+        console.log(`[HF] Model loading, waiting ${Math.round(wait/1000)}s (attempt ${attempt+1})`);
+        await new Promise(r => setTimeout(r, wait));
+        continue;
+      }
+
+      if (!hfRes.ok) {
+        const msg = await hfRes.text();
+        return res.status(hfRes.status).json({ error: `HuggingFace: ${msg.slice(0, 200)}` });
+      }
+
+      // Success — stream the audio back to the client
+      const buf = await hfRes.arrayBuffer();
+      res.setHeader('Content-Type', 'audio/flac');
+      res.setHeader('Cache-Control', 'no-store');
+      return res.send(Buffer.from(buf));
+
+    } catch(e) {
+      if (attempt === 7) return res.status(500).json({ error: e.message });
     }
-    const pred = await predRes.json();
-    res.json({ id: pred.id, status: pred.status, lyrics });
-  } catch(e) {
-    res.status(500).json({ error: e.message });
   }
-});
-
-app.get('/api/song-status/:id', async (req, res) => {
-  const replicateKey = process.env.REPLICATE_API_TOKEN;
-  if (!replicateKey) return res.status(500).json({ error: 'REPLICATE_API_TOKEN not configured.' });
-  try {
-    const r    = await fetch(`https://api.replicate.com/v1/predictions/${req.params.id}`, {
-      headers: { 'Authorization': `Bearer ${replicateKey}` },
-      signal: AbortSignal.timeout(10000)
-    });
-    const data = await r.json();
-    const url  = Array.isArray(data.output) ? data.output[0] : (data.output || null);
-    res.json({ status: data.status, url, error: data.error });
-  } catch(e) {
-    res.status(500).json({ error: e.message });
-  }
+  res.status(503).json({ error: 'Model still warming up — wait ~1 minute and try again.' });
 });
 
 app.post('/api/tts', async (req, res) => {

@@ -1080,7 +1080,7 @@ async function listenBriefing() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SONG GENERATION (Replicate MusicGen)
+// SONG GENERATION (HuggingFace MusicGen — free)
 // ─────────────────────────────────────────────────────────────────────────────
 async function startSong() {
   const btn      = document.getElementById('song-btn');
@@ -1088,7 +1088,6 @@ async function startSong() {
   const bar      = document.getElementById('audio-bar');
   const statusEl = document.getElementById('audio-status');
 
-  // Collect briefing prose
   let text = '';
   document.querySelectorAll('#brief-out .brief-section').forEach(sec => {
     const topic = sec.querySelector('.topic-tag')?.textContent?.trim() || '';
@@ -1100,41 +1099,31 @@ async function startSong() {
 
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner dark"></span>';
-  bar.style.display  = 'block';
-  audioEl.src        = '';
-  statusEl.textContent = '🎵 Writing lyrics…';
+  bar.style.display    = 'block';
+  audioEl.src          = '';
+  statusEl.textContent = '🎵 Composing song… (30-90s, model may need to wake up)';
 
   try {
-    // Step 1: Start generation (server writes lyrics + queues Replicate job)
-    const startRes = await fetch('/api/song-start', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+    const res = await fetch('/api/song-generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text })
     });
-    if (!startRes.ok) {
-      const err = await startRes.json().catch(() => ({}));
-      throw new Error(err.error || `HTTP ${startRes.status}`);
-    }
-    const { id } = await startRes.json();
 
-    // Step 2: Poll until done (MusicGen takes ~30-60s)
-    statusEl.textContent = '🎵 Composing song… (~30-60s)';
-    let url = null;
-    for (let i = 0; i < 60; i++) {
-      await new Promise(r => setTimeout(r, 3000));
-      const poll = await fetch(`/api/song-status/${id}`).then(r => r.json());
-      if (poll.status === 'succeeded' && poll.url) { url = poll.url; break; }
-      if (poll.status === 'failed') throw new Error(poll.error || 'Song generation failed.');
-      statusEl.textContent = `🎵 Composing… ${Math.round((i+1)*3)}s`;
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${res.status}`);
     }
-    if (!url) throw new Error('Timed out — try again.');
 
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
     statusEl.textContent = '🎵 Song Version';
     audioEl.src = url;
     audioEl.play();
   } catch(e) {
     statusEl.textContent = '⚠️ ' + e.message;
-    if (e.message.includes('REPLICATE')) {
-      statusEl.textContent += ' — add REPLICATE_API_TOKEN in Render environment variables.';
+    if (e.message.includes('HUGGINGFACE')) {
+      statusEl.textContent += ' — add HUGGINGFACE_TOKEN in Render env vars (free at huggingface.co).';
     }
   }
   btn.disabled = false;
