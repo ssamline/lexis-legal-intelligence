@@ -1080,7 +1080,7 @@ async function listenBriefing() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SONG GENERATION — Claude writes lyrics, user pastes into Suno (free tier)
+// SONG GENERATION — auto-opens Suno + auto-copies lyrics (1-click flow)
 // ─────────────────────────────────────────────────────────────────────────────
 let _songLyrics = '';
 
@@ -1088,8 +1088,8 @@ function copySongLyrics() {
   if (!_songLyrics) return;
   navigator.clipboard.writeText(_songLyrics).then(() => {
     const b = document.getElementById('copy-lyrics-btn');
-    if (b) { b.textContent = '✓ Copied!'; setTimeout(() => { b.textContent = '📋 Copy Lyrics'; }, 2000); }
-  });
+    if (b) { b.textContent = '✓ Copied!'; setTimeout(() => { b.textContent = '📋 Copy again'; }, 2000); }
+  }).catch(() => {});
 }
 
 async function startSong() {
@@ -1099,28 +1099,30 @@ async function startSong() {
 
   let text = '';
   document.querySelectorAll('#brief-out .brief-section').forEach(sec => {
-    const prose = sec.querySelector('.prose')?.textContent?.trim() || '';
-    if (prose) text += prose + ' ';
+    const p = sec.querySelector('.prose')?.textContent?.trim() || '';
+    if (p) text += p + ' ';
   });
   if (!text.trim()) return;
 
-  btn.disabled         = true;
-  btn.innerHTML        = '<span class="spinner dark"></span>';
-  bar.style.display    = 'block';
-  statusEl.innerHTML   = '<span style="color:var(--muted)">🎵 Writing lyrics from your briefing…</span>';
+  btn.disabled      = true;
+  btn.innerHTML     = '<span class="spinner dark"></span>';
+  bar.style.display = 'block';
+  statusEl.innerHTML = '<span style="color:var(--muted)">🎵 Opening Suno and writing lyrics…</span>';
 
-  let lyrics = '';
-  let style  = 'upbeat pop, energetic, professional';
+  // Open Suno immediately while inside the user-gesture click handler
+  const sunoWin = window.open('https://suno.com/create', '_blank');
 
+  // Generate lyrics with Claude
+  let lyrics = '', style = 'upbeat energetic pop, professional news';
   try {
-    const res  = await fetch('/api/chat', {
+    const res = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 320,
-        system: 'You are a creative songwriter. Given a legal news briefing, write freestyle song lyrics and suggest a Suno music style. Respond ONLY in this exact JSON:\n{"lyrics":"line1\\nline2\\nline3\\nline4\\nline5\\nline6","style":"genre, mood, energy"}',
-        messages: [{ role: 'user', content: `Write song lyrics based on this legal briefing:\n\n${text.slice(0, 700)}` }]
+        max_tokens: 300,
+        system: 'You are a creative songwriter. Given a legal news briefing, write freestyle song lyrics and a short Suno style prompt. Respond ONLY as JSON with no extra text: {"lyrics":"line1\\nline2\\nline3\\nline4\\nline5","style":"2-5 word Suno style"}',
+        messages: [{ role: 'user', content: `Song lyrics from this legal briefing:\n\n${text.slice(0, 700)}` }]
       })
     });
     const data = await res.json();
@@ -1130,35 +1132,45 @@ async function startSong() {
       if (m) { const p = JSON.parse(m[0]); lyrics = p.lyrics || ''; style = p.style || style; }
     } catch {}
     if (!lyrics) lyrics = raw.replace(/```[\s\S]*?```/g, '').slice(0, 300).trim();
-  } catch(e) {
-    lyrics = text.slice(0, 250);
-  }
+  } catch {}
+  if (!lyrics) lyrics = text.slice(0, 250);
 
   _songLyrics = lyrics;
+
+  // Auto-copy lyrics to clipboard
+  let copied = false;
+  try { await navigator.clipboard.writeText(lyrics); copied = true; } catch {}
+
+  const sunoBlocked = !sunoWin || sunoWin.closed;
   const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
+  // Build status message based on what succeeded
+  let headline = '';
+  if (copied && !sunoBlocked)      headline = '✅ Suno is open &amp; lyrics copied to your clipboard!';
+  else if (copied && sunoBlocked)  headline = '✅ Lyrics copied! Open Suno to generate your song.';
+  else if (!copied && !sunoBlocked) headline = '🎵 Suno is open — copy your lyrics below:';
+  else                              headline = '🎵 Lyrics ready:';
+
   statusEl.innerHTML = `
-    <div style="font-weight:600;color:var(--accent);margin-bottom:8px">🎵 Song Lyrics — paste into Suno</div>
-    <div id="lyrics-display" style="white-space:pre-wrap;font-style:italic;line-height:1.75;
+    <div style="font-weight:600;color:var(--accent);margin-bottom:8px">${headline}</div>
+    <div style="white-space:pre-wrap;font-style:italic;line-height:1.75;
       padding:10px 14px;background:rgba(0,0,0,0.06);border-radius:8px;font-size:13px;
       margin-bottom:10px;border-left:3px solid var(--accent)">${esc(lyrics)}</div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:10px">
-      Suggested Suno style: <b>${esc(style)}</b>
+      Suno style prompt: <b>${esc(style)}</b>
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
       <button id="copy-lyrics-btn" onclick="copySongLyrics()"
-        style="font-size:12px;padding:5px 13px;border:1.5px solid var(--accent);background:transparent;
+        style="font-size:12px;padding:5px 12px;border:1.5px solid var(--accent);background:transparent;
           color:var(--accent);border-radius:6px;cursor:pointer;font-weight:500">
-        📋 Copy Lyrics
+        ${copied ? '✓ Copied — click to copy again' : '📋 Copy Lyrics'}
       </button>
-      <a href="https://suno.com/create" target="_blank" rel="noopener"
-        style="font-size:12px;padding:5px 13px;background:var(--accent);color:#fff;
-          border-radius:6px;text-decoration:none;font-weight:600">
-        Open Suno ↗
-      </a>
+      ${sunoBlocked ? `<a href="https://suno.com/create" target="_blank" rel="noopener"
+        style="font-size:12px;padding:5px 12px;background:var(--accent);color:#fff;
+          border-radius:6px;text-decoration:none;font-weight:600">Open Suno ↗</a>` : ''}
     </div>
-    <div style="font-size:11px;color:var(--muted);margin-top:9px">
-      In Suno: <b>Custom mode</b> → paste lyrics → add style above → Generate
+    <div style="font-size:11px;color:var(--muted);line-height:1.6">
+      In Suno → <b>Custom</b> → paste lyrics (<kbd style="background:rgba(0,0,0,0.1);padding:1px 5px;border-radius:3px">Ctrl+V</kbd>) → enter style above → <b>Create</b>
     </div>`;
 
   btn.disabled    = false;
