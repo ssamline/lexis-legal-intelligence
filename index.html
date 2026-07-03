@@ -240,6 +240,7 @@ body{font-family:Georgia,serif;background:var(--surface);color:var(--ink);min-he
           </div>
           <div style="display:flex;gap:8px;align-items:center">
             <button class="btn-outline" id="listen-btn" onclick="listenBriefing()" style="display:none">▶ Listen</button>
+            <button class="btn-outline" id="song-btn"   onclick="startSong()"       style="display:none">♪ Song</button>
             <button class="btn-outline" id="renew-btn"  onclick="generateBriefing()">↻ Renew</button>
           </div>
         </div>
@@ -611,6 +612,7 @@ function restoreBriefing(entry) {
   document.getElementById('brief-ts').style.display     = 'inline';
   document.getElementById('brief-ts').textContent       = 'Loaded ' + entry.time;
   document.getElementById('listen-btn').style.display   = 'inline-flex';
+  document.getElementById('song-btn').style.display     = 'inline-flex';
   S.context = entry.context || '';
   document.getElementById('ctx-badge').textContent = `📰 Today's briefing loaded`;
 }
@@ -788,6 +790,7 @@ Only include these topics: ${activeTopics.join(',')}.`;
     document.getElementById('brief-ts').style.display     = 'inline';
     document.getElementById('brief-ts').textContent       = 'Updated ' + entry.time;
     document.getElementById('listen-btn').style.display   = 'inline-flex';
+  document.getElementById('song-btn').style.display     = 'inline-flex';
     document.getElementById('audio-bar').style.display    = 'none'; // reset player on new briefing
     document.getElementById('ctx-badge').textContent     = `📰 ${activeTopics.length * 3} items in context`;
 
@@ -1074,6 +1077,68 @@ async function listenBriefing() {
   audioEl.onended = playNext;
   btn.disabled = false; btn.textContent = '⏸ Playing';
   playNext();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SONG GENERATION (Replicate MusicGen)
+// ─────────────────────────────────────────────────────────────────────────────
+async function startSong() {
+  const btn      = document.getElementById('song-btn');
+  const audioEl  = document.getElementById('brief-audio');
+  const bar      = document.getElementById('audio-bar');
+  const statusEl = document.getElementById('audio-status');
+
+  // Collect briefing prose
+  let text = '';
+  document.querySelectorAll('#brief-out .brief-section').forEach(sec => {
+    const topic = sec.querySelector('.topic-tag')?.textContent?.trim() || '';
+    const prose = sec.querySelector('.prose')?.textContent?.trim()     || '';
+    if (prose) text += (topic ? topic + ': ' : '') + prose + ' ';
+  });
+  text = text.trim();
+  if (!text) return;
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner dark"></span>';
+  bar.style.display  = 'block';
+  audioEl.src        = '';
+  statusEl.textContent = '🎵 Writing lyrics…';
+
+  try {
+    // Step 1: Start generation (server writes lyrics + queues Replicate job)
+    const startRes = await fetch('/api/song-start', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text })
+    });
+    if (!startRes.ok) {
+      const err = await startRes.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${startRes.status}`);
+    }
+    const { id } = await startRes.json();
+
+    // Step 2: Poll until done (MusicGen takes ~30-60s)
+    statusEl.textContent = '🎵 Composing song… (~30-60s)';
+    let url = null;
+    for (let i = 0; i < 60; i++) {
+      await new Promise(r => setTimeout(r, 3000));
+      const poll = await fetch(`/api/song-status/${id}`).then(r => r.json());
+      if (poll.status === 'succeeded' && poll.url) { url = poll.url; break; }
+      if (poll.status === 'failed') throw new Error(poll.error || 'Song generation failed.');
+      statusEl.textContent = `🎵 Composing… ${Math.round((i+1)*3)}s`;
+    }
+    if (!url) throw new Error('Timed out — try again.');
+
+    statusEl.textContent = '🎵 Song Version';
+    audioEl.src = url;
+    audioEl.play();
+  } catch(e) {
+    statusEl.textContent = '⚠️ ' + e.message;
+    if (e.message.includes('REPLICATE')) {
+      statusEl.textContent += ' — add REPLICATE_API_TOKEN in Render environment variables.';
+    }
+  }
+  btn.disabled = false;
+  btn.textContent = '♪ Song';
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

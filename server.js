@@ -188,6 +188,81 @@ app.post('/api/legal-search', async (req, res) => {
   res.json({ cases, articles });
 });
 
+// Song generation: Claude writes lyrics → Replicate MusicGen composes
+app.post('/api/song-start', async (req, res) => {
+  const replicateKey  = process.env.REPLICATE_API_TOKEN;
+  const anthropicKey  = process.env.ANTHROPIC_API_KEY;
+  if (!replicateKey) return res.status(500).json({ error: 'REPLICATE_API_TOKEN not configured in Render environment variables.' });
+
+  const { text } = req.body;
+  if (!text?.trim()) return res.status(400).json({ error: 'No text provided.' });
+
+  // Step 1: Generate song lyrics with Claude
+  let lyrics = text.slice(0, 300); // plain-text fallback
+  if (anthropicKey) {
+    try {
+      const lyricRes = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 180,
+          system: 'You are a creative songwriter. Given a legal news briefing, write 4-6 short, punchy, rhyming song lyrics that capture the key legal developments. Professional but catchy. Output ONLY the lyrics — no titles, no labels, no extra text.',
+          messages: [{ role: 'user', content: text.slice(0, 800) }]
+        }),
+        signal: AbortSignal.timeout(15000)
+      });
+      if (lyricRes.ok) {
+        const ld = await lyricRes.json();
+        lyrics = ld.content?.[0]?.text?.trim() || lyrics;
+      }
+    } catch {}
+  }
+
+  // Step 2: Queue Replicate MusicGen prediction
+  const musicPrompt = `upbeat professional news podcast song, major key, clear sung vocals, energetic and concise. Lyrics: ${lyrics}`;
+  try {
+    const predRes = await fetch('https://api.replicate.com/v1/models/meta/musicgen/predictions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${replicateKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        input: {
+          prompt: musicPrompt,
+          duration: 30,
+          model_version: 'stereo-melody-large',
+          output_format: 'mp3',
+          normalization_strategy: 'peak'
+        }
+      }),
+      signal: AbortSignal.timeout(15000)
+    });
+    if (!predRes.ok) {
+      const err = await predRes.json().catch(() => ({}));
+      return res.status(predRes.status).json({ error: err.detail || JSON.stringify(err) });
+    }
+    const pred = await predRes.json();
+    res.json({ id: pred.id, status: pred.status, lyrics });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/song-status/:id', async (req, res) => {
+  const replicateKey = process.env.REPLICATE_API_TOKEN;
+  if (!replicateKey) return res.status(500).json({ error: 'REPLICATE_API_TOKEN not configured.' });
+  try {
+    const r    = await fetch(`https://api.replicate.com/v1/predictions/${req.params.id}`, {
+      headers: { 'Authorization': `Bearer ${replicateKey}` },
+      signal: AbortSignal.timeout(10000)
+    });
+    const data = await r.json();
+    const url  = Array.isArray(data.output) ? data.output[0] : (data.output || null);
+    res.json({ status: data.status, url, error: data.error });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post('/api/tts', async (req, res) => {
   const openaiKey = process.env.OPENAI_API_KEY;
   if (!openaiKey) return res.status(500).json({ error: 'OPENAI_API_KEY not configured in Render environment variables.' });
