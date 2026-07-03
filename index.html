@@ -1181,18 +1181,77 @@ async function startSong() {
   btn.innerHTML     = '<span class="spinner dark"></span>';
   bar.style.display = 'block';
   bar.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  statusEl.textContent = '🎵 Composing song… (30-60s first time)';
 
+  // ── Try Suno first ──────────────────────────────────────────────────────────
   try {
-    const res = await fetch('/api/song-generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    statusEl.textContent = '🎵 Writing lyrics and sending to Suno…';
+    const startRes = await fetch('/api/song-start', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text })
     });
 
-    const ct = res.headers.get('content-type') || '';
-    if (ct.includes('audio')) {
-      // HuggingFace returned real AI music — play it directly
+    if (startRes.ok) {
+      const { id, lyrics, style } = await startRes.json();
+      const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+      // Show lyrics while Suno composes (~30-60s)
+      statusEl.innerHTML = `
+        <div style="margin-bottom:8px;font-weight:600;color:var(--accent)">
+          🎵 Suno is composing… <span id="song-timer" style="font-weight:400;color:var(--muted)">0s</span>
+        </div>
+        <div style="white-space:pre-wrap;font-style:italic;font-size:12px;line-height:1.7;
+          padding:8px 12px;background:rgba(0,0,0,0.05);border-radius:6px;
+          border-left:2px solid var(--accent);margin-bottom:6px">${esc(lyrics)}</div>
+        <div style="font-size:11px;color:var(--muted)">Style: ${esc(style)}</div>`;
+
+      const timerEl = document.getElementById('song-timer');
+      let elapsed = 0;
+      const tick = setInterval(() => { elapsed += 3; if (timerEl) timerEl.textContent = elapsed + 's'; }, 3000);
+
+      let audioUrl = null;
+      for (let i = 0; i < 40; i++) {
+        await new Promise(r => setTimeout(r, 3000));
+        const poll = await fetch(`/api/song-status/${id}`).then(r => r.json()).catch(() => ({}));
+        if ((poll.status === 'complete' || poll.status === 'streaming') && poll.url) { audioUrl = poll.url; break; }
+        if (poll.error) throw new Error(poll.error);
+      }
+      clearInterval(tick);
+
+      if (audioUrl) {
+        audioEl.src = audioUrl;
+        await audioEl.play().catch(() => {});
+        statusEl.innerHTML = `
+          <div style="font-weight:600;color:var(--accent);margin-bottom:6px">🎵 Your Suno song is playing!</div>
+          <div style="white-space:pre-wrap;font-style:italic;font-size:12px;line-height:1.7;
+            padding:8px 12px;background:rgba(0,0,0,0.05);border-radius:6px;
+            border-left:2px solid var(--accent)">${esc(lyrics)}</div>`;
+        btn.disabled = false; btn.textContent = '♪ Song'; btn.onclick = startSong;
+        return;
+      }
+      throw new Error('Song timed out — try again.');
+    }
+
+    // Suno returned an error (e.g. no API key set) — fall through to HF / Tone.js
+    const err = await startRes.json().catch(() => ({}));
+    if (err.error?.includes('SUNO_API_KEY')) throw new Error(err.error); // surface key errors
+    console.info('[Song] Suno unavailable:', err.error, '— trying fallback');
+  } catch(e) {
+    if (e.message.includes('SUNO_API_KEY')) {
+      statusEl.textContent = '⚠️ ' + e.message;
+      btn.disabled = false; btn.textContent = '♪ Song'; btn.onclick = startSong;
+      return;
+    }
+    console.info('[Song] Suno error:', e.message, '— trying HF/Tone fallback');
+  }
+
+  // ── Fallback: HuggingFace → Tone.js ────────────────────────────────────────
+  statusEl.textContent = '🎵 Composing song… (30-60s)';
+  try {
+    const res = await fetch('/api/song-generate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text })
+    });
+    if (res.headers.get('content-type')?.includes('audio')) {
       const blob = await res.blob();
       audioEl.src = URL.createObjectURL(blob);
       await audioEl.play().catch(() => {});
@@ -1200,14 +1259,7 @@ async function startSong() {
       btn.disabled = false; btn.textContent = '♪ Song'; btn.onclick = startSong;
       return;
     }
-
-    // Server signalled fallback (rate limit, 401, etc.) — use in-browser synth
-    const data = await res.json().catch(() => ({}));
-    console.info('[Song] Using in-browser fallback:', data.error || res.status);
-
-  } catch(e) {
-    console.info('[Song] Server unreachable, using in-browser fallback:', e.message);
-  }
+  } catch {}
 
   btn.disabled = false; btn.onclick = startSong;
   await _playToneFallback(text, statusEl, btn);

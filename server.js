@@ -188,6 +188,79 @@ app.post('/api/legal-search', async (req, res) => {
   res.json({ cases, articles });
 });
 
+// ── Suno API song generation ──────────────────────────────────────────────────
+// Step 1: generate lyrics with Claude, kick off Suno job, return { id }
+app.post('/api/song-start', async (req, res) => {
+  const sunoKey     = process.env.SUNO_API_KEY;
+  const anthropicKey = process.env.ANTHROPIC_API_KEY;
+  if (!sunoKey) return res.status(500).json({ error: 'SUNO_API_KEY not set in Render environment variables.' });
+
+  const { text } = req.body;
+  if (!text?.trim()) return res.status(400).json({ error: 'No text provided.' });
+
+  // Write lyrics with Claude
+  let lyrics = text.slice(0, 300);
+  let style  = 'upbeat energetic pop, professional news';
+  if (anthropicKey) {
+    try {
+      const lr = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001', max_tokens: 250,
+          system: 'You are a creative songwriter. Given a legal news briefing write freestyle song lyrics (5-6 punchy rhyming lines) and a music style. Respond ONLY as JSON: {"lyrics":"line1\\nline2\\nline3\\nline4\\nline5","style":"2-5 word genre/mood"}',
+          messages: [{ role: 'user', content: text.slice(0, 700) }]
+        }),
+        signal: AbortSignal.timeout(12000)
+      });
+      if (lr.ok) {
+        const d = await lr.json();
+        const raw = d.content?.[0]?.text?.trim() || '';
+        try { const m = raw.match(/\{[\s\S]*?\}/); if (m) { const p = JSON.parse(m[0]); if (p.lyrics) lyrics = p.lyrics; if (p.style) style = p.style; } } catch {}
+      }
+    } catch {}
+  }
+
+  // Submit to Suno
+  try {
+    const sunoRes = await fetch('https://api.suno.ai/v1/generate', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${sunoKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: lyrics, tags: style, title: 'LexBrief Daily Song', make_instrumental: false, wait_audio: false }),
+      signal: AbortSignal.timeout(30000)
+    });
+    if (!sunoRes.ok) {
+      const err = await sunoRes.json().catch(() => ({}));
+      return res.status(sunoRes.status).json({ error: err.detail || err.message || err.error || `Suno ${sunoRes.status}` });
+    }
+    const data = await sunoRes.json();
+    const clips = Array.isArray(data) ? data : (data.clips || data.data || [data]);
+    const id    = clips[0]?.id || clips[0]?.task_id;
+    if (!id) return res.status(500).json({ error: 'Suno returned no song ID — check your API key.' });
+    res.json({ id, lyrics, style });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Step 2: poll until Suno finishes, return { status, url }
+app.get('/api/song-status/:id', async (req, res) => {
+  const sunoKey = process.env.SUNO_API_KEY;
+  if (!sunoKey) return res.status(500).json({ error: 'SUNO_API_KEY not set.' });
+  try {
+    const r    = await fetch(`https://api.suno.ai/v1/songs/${req.params.id}`, {
+      headers: { 'Authorization': `Bearer ${sunoKey}` },
+      signal: AbortSignal.timeout(10000)
+    });
+    const data = await r.json();
+    const song = Array.isArray(data) ? data[0] : data;
+    res.json({ status: song.status || song.state, url: song.audio_url || song.url || null, error: song.error_message || null });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── HuggingFace MusicGen fallback (no Suno key) ───────────────────────────────
 // Song generation via HuggingFace MusicGen — token optional (anonymous has low rate limit)
 app.post('/api/song-generate', async (req, res) => {
   const hfToken      = process.env.HUGGINGFACE_TOKEN; // optional — improves rate limits
