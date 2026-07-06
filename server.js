@@ -238,7 +238,7 @@ app.post('/api/chat', async (req, res) => {
 
 // Competitive legal analysis: SEC EDGAR + CourtListener + user sources
 app.post('/api/compare-companies', async (req, res) => {
-  const { companies = [], urls = [] } = req.body;
+  const { companies = [], urls = [], topics = {}, sectors = {} } = req.body;
   if (companies.length < 2) return res.status(400).json({ error: 'Need at least 2 companies to compare.' });
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -287,8 +287,19 @@ app.post('/api/compare-companies', async (req, res) => {
   }
 
   // 4. Build context for Claude
-  let ctx = `Compare these companies from a LEGAL RISK AND REGULATORY ADVANTAGE perspective: ${companies.join(' vs. ')}\n\n`;
-  ctx += `Focus on how recent changes in law and regulations create competitive differences.\n\n`;
+  const TOPIC_LABELS = { ip: 'IP & Technology law', reg: 'Regulatory & Compliance', lit: 'Litigation & Courts', corp: 'Corporate & M&A' };
+  const SECTOR_LABELS = {
+    technology:'Technology & AI', finance:'Finance & Banking', healthcare:'Healthcare & Pharma',
+    realestate:'Real Estate', energy:'Energy & Environment', retail:'Retail & E-commerce',
+    media:'Media & Entertainment', manufacturing:'Manufacturing', startup:'Startups & VC'
+  };
+  const activeTopics  = Object.entries(topics).filter(([,v])=>v).map(([k])=>TOPIC_LABELS[k]||k);
+  const activeSectors = Object.entries(sectors).filter(([,v])=>v).map(([k])=>SECTOR_LABELS[k]||k);
+
+  let ctx = `Compare these companies from a legal perspective: ${companies.join(' vs. ')}\n\n`;
+  if (activeTopics.length)  ctx += `FOCUS ONLY on these legal topic areas: ${activeTopics.join(', ')}. Do not analyse areas outside this scope.\n`;
+  if (activeSectors.length) ctx += `Industry context: ${activeSectors.join(', ')}.\n`;
+  ctx += `Lens: how do recent changes in law and regulations within the above topic areas create competitive differences?\n\n`;
 
   for (const co of companies) {
     ctx += `## ${co}\n`;
@@ -305,25 +316,26 @@ app.post('/api/compare-companies', async (req, res) => {
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 2000,
-        system: `You are a legal intelligence analyst specializing in competitive regulatory analysis. Compare companies by analyzing their regulatory exposure, litigation history, compliance advantages, IP position, and how recent legal/regulatory changes affect their competitive position.
+        system: `You are a legal intelligence analyst specializing in competitive regulatory analysis. Compare companies strictly within the legal topic areas specified by the user. If specific topic areas are listed (e.g. IP & Technology, Regulatory & Compliance, Litigation & Courts, Corporate & M&A), confine every insight to those areas only — do not stray into unrelated legal domains.
 
 Respond ONLY as valid JSON (no markdown fences, no text outside the JSON object):
 {
-  "summary": "2-3 sentence overview of the competitive legal landscape",
+  "summary": "2-3 sentence overview of the competitive legal landscape within the specified topic areas",
   "isCompetitors": true,
   "industryContext": "What industry/market they compete in",
+  "focusAreas": ["topic area 1", "topic area 2"],
   "companies": {
     "COMPANY_NAME": {
       "riskLevel": "High|Medium|Low",
-      "keyRisks": ["risk 1", "risk 2", "risk 3"],
-      "legalAdvantages": ["advantage 1", "advantage 2"],
-      "recentDevelopments": ["development 1", "development 2"],
-      "regulatoryExposure": "One sentence on main regulatory exposure"
+      "keyRisks": ["specific risk within selected topics 1", "risk 2", "risk 3"],
+      "legalAdvantages": ["advantage within selected topics 1", "advantage 2"],
+      "recentDevelopments": ["recent legal development relevant to selected topics 1", "development 2"],
+      "regulatoryExposure": "One sentence on main exposure within the selected topic areas"
     }
   },
-  "industryTrends": ["regulatory trend 1", "trend 2", "trend 3"],
-  "comparativeVerdict": "Which company has the stronger legal/regulatory position and why",
-  "watchlist": ["upcoming regulatory development to watch 1", "development 2"]
+  "industryTrends": ["regulatory trend within selected topics 1", "trend 2", "trend 3"],
+  "comparativeVerdict": "Which company has the stronger position within the selected legal topic areas and why",
+  "watchlist": ["upcoming development in selected topic areas to watch 1", "development 2"]
 }`,
         messages: [{ role: 'user', content: ctx }]
       }),
