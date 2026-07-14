@@ -217,9 +217,79 @@ body{font-family:Georgia,serif;background:var(--surface);color:var(--ink);min-he
 .compare-list{list-style:none;padding:0;display:flex;flex-direction:column;gap:2px}
 .compare-list li{font-family:Arial,sans-serif;font-size:12px;color:var(--ink2);display:flex;gap:5px}
 .compare-list li::before{content:'•';color:var(--ink3);flex-shrink:0}
+
+/* ── Start Gate ── */
+.start-gate{position:fixed;inset:0;background:var(--surface);z-index:2000;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:3rem 1.5rem}
+.start-gate.hidden{display:none}
+.start-gate-inner{width:100%;max-width:480px;display:flex;flex-direction:column;gap:1.25rem}
+.start-gate-logo{display:flex;align-items:center;gap:10px;justify-content:center;margin-bottom:.5rem}
+.start-gate-card{background:var(--white);border:1px solid var(--rule);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.5rem}
+.start-gate-card h1{font-family:Georgia,serif;font-size:18px;font-weight:400;color:var(--ink);margin-bottom:6px}
+.start-gate-card p{font-family:Arial,sans-serif;font-size:12px;color:var(--ink3);margin-bottom:14px}
+.start-gate-row{display:flex;gap:8px}
+.start-gate-row input{flex:1;font-size:14px;font-family:Arial,sans-serif;padding:10px 12px;border:1px solid var(--rule);border-radius:var(--radius);color:var(--ink);background:var(--white);outline:none}
+.start-gate-row input:focus{border-color:var(--accent)}
+.start-gate-row button{font-family:Arial,sans-serif;font-size:13px;font-weight:600;padding:10px 20px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);cursor:pointer;white-space:nowrap}
+.start-gate-row button:disabled{opacity:.4;cursor:not-allowed}
+.start-recent-title{font-family:Arial,sans-serif;font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px}
+.start-recent-list{display:flex;flex-direction:column;gap:8px}
+.start-recent-item{background:var(--white);border:1px solid var(--rule);border-radius:var(--radius);padding:11px 14px}
+.start-recent-nick{font-family:Arial,sans-serif;font-size:11px;font-weight:700;color:var(--accent);margin-bottom:3px}
+.start-recent-text{font-family:Georgia,serif;font-size:13px;color:var(--ink2);line-height:1.55}
+.start-recent-time{font-family:Arial,sans-serif;font-size:10px;color:var(--ink3);margin-top:4px}
+
+/* ── My Thoughts feed ── */
+.thought-compose{display:flex;flex-direction:column;gap:8px}
+.thought-compose textarea{font-family:Georgia,serif;font-size:13px;padding:10px 12px;border:1px solid var(--rule);border-radius:var(--radius);color:var(--ink);resize:vertical;min-height:64px;outline:none}
+.thought-compose textarea:focus{border-color:var(--accent)}
+.thought-feed{display:flex;flex-direction:column;gap:10px}
+.thought-card{background:var(--white);border:1px solid var(--rule);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px}
+.thought-card-head{display:flex;align-items:baseline;gap:8px;margin-bottom:6px}
+.thought-nick{font-family:Arial,sans-serif;font-size:12px;font-weight:700;color:var(--accent)}
+.thought-time{font-family:Arial,sans-serif;font-size:11px;color:var(--ink3)}
+.thought-text{font-family:Georgia,serif;font-size:14px;line-height:1.65;color:var(--ink);margin-bottom:8px;white-space:pre-wrap}
+.thought-comments{margin-top:10px;padding-top:10px;border-top:1px solid var(--rule);display:none;flex-direction:column;gap:8px}
+.thought-comments.open{display:flex}
+.comment-item{background:var(--surface);border-radius:6px;padding:8px 10px}
+.comment-nick{font-family:Arial,sans-serif;font-size:11px;font-weight:700;color:var(--ink2)}
+.comment-text{font-family:Georgia,serif;font-size:13px;color:var(--ink2);margin-top:2px;white-space:pre-wrap}
+.comment-input-row{display:flex;gap:6px;margin-top:2px}
+.comment-input-row input{flex:1;font-size:12px;font-family:Arial,sans-serif;padding:7px 10px;border:1px solid var(--rule);border-radius:var(--radius);color:var(--ink);outline:none}
+.comment-input-row button{font-family:Arial,sans-serif;font-size:12px;font-weight:600;padding:7px 12px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);cursor:pointer}
+.thought-card-actions{display:flex;gap:14px;align-items:center;margin-top:4px}
+.thought-edited{font-size:10px;color:var(--ink3);font-weight:400}
+.comment-actions{display:flex;gap:10px;margin-top:2px}
+.comment-mini-btn{font-family:Arial,sans-serif;font-size:11px;color:var(--ink3);background:none;border:none;cursor:pointer;padding:0}
+.comment-mini-btn:hover{color:var(--accent)}
+.edit-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:6px}
+.edit-textarea{width:100%;font-family:Georgia,serif;font-size:13px;padding:8px 10px;border:1px solid var(--rule);border-radius:var(--radius);color:var(--ink);resize:vertical;outline:none}
+.edit-textarea:focus{border-color:var(--accent)}
 </style>
 
-<div class="app">
+<div class="start-gate" id="start-gate">
+  <div class="start-gate-inner">
+    <div class="start-gate-logo">
+      <div class="logo-mark" style="background:var(--accent);color:#fff">Lx</div>
+      <div style="font-family:Georgia,serif;font-size:16px;color:var(--ink)">LexBrief</div>
+    </div>
+    <div class="start-gate-card">
+      <h1>닉네임을 입력하고 시작하세요</h1>
+      <p>친구들과 의견·질문을 나누려면 먼저 닉네임이 필요해요.</p>
+      <div class="start-gate-row">
+        <input id="gate-nickname" type="text" placeholder="닉네임" maxlength="20" oninput="onGateNicknameInput()" onkeydown="if(event.key==='Enter')enterApp()">
+        <button id="gate-enter-btn" disabled onclick="enterApp()">시작하기</button>
+      </div>
+    </div>
+    <div class="start-gate-card">
+      <div class="start-recent-title">최근 의견 &amp; 질문</div>
+      <div class="start-recent-list" id="gate-recent-list">
+        <div class="hint" style="padding:1rem 0">최근 의견을 불러오는 중…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="app" id="app-root" style="display:none">
 
   <div class="header">
     <div style="display:flex;align-items:center;gap:10px">
@@ -278,15 +348,38 @@ body{font-family:Georgia,serif;background:var(--surface);color:var(--ink);min-he
       <!-- Sub-navigation -->
       <div class="card" style="padding:0;overflow:hidden">
         <div class="sub-nav">
-          <button class="sub-btn active" id="sub-btn-archive" onclick="showSubPanel('archive',this)">📚 Archive</button>
+          <button class="sub-btn active" id="sub-btn-mine"    onclick="showSubPanel('mine',this)">📝 내 생각</button>
+          <button class="sub-btn" id="sub-btn-archive" onclick="showSubPanel('archive',this)">📚 Archive</button>
           <button class="sub-btn" id="sub-btn-search"  onclick="showSubPanel('search',this)">🔍 Search Stories</button>
           <button class="sub-btn" id="sub-btn-qa"      onclick="showSubPanel('qa',this)">⚖️ Legal Q&amp;A</button>
           <button class="sub-btn" id="sub-btn-compare" onclick="showSubPanel('compare',this)">📊 Compare</button>
         </div>
       </div>
 
+      <!-- (0) My Thoughts -->
+      <div class="sub-panel active" id="sub-mine">
+        <div class="card">
+          <div class="card-head"><span class="card-title">내 생각 남기기</span></div>
+          <div class="card-body">
+            <div class="thought-compose">
+              <textarea id="thought-input" placeholder="의견이나 질문을 남겨보세요…" rows="3" maxlength="500"></textarea>
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <span class="hint" id="thought-auth-hint" style="padding:0;text-align:left;font-size:11px"></span>
+                <button class="btn-primary" id="thought-post-btn" onclick="postThought()" disabled>게시</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="thought-feed" id="thought-feed">
+          <div class="hint">불러오는 중…</div>
+        </div>
+        <div style="text-align:center">
+          <button class="btn-outline" id="thought-more-btn" style="display:none" onclick="loadMoreThoughts()">더 보기</button>
+        </div>
+      </div>
+
       <!-- (a) Archive -->
-      <div class="sub-panel active" id="sub-archive">
+      <div class="sub-panel" id="sub-archive">
         <div id="archive-cards">
           <div class="hint">No saved briefings yet. Generate your first briefing on the Daily Briefing tab.</div>
         </div>
@@ -897,7 +990,7 @@ Only include these topics: ${activeTopics.join(',')}.`;
 // RESEARCH HUB — SUB-NAVIGATION
 // ─────────────────────────────────────────────────────────────────────────────
 function showSubPanel(name, btn) {
-  ['archive','search','qa','compare'].forEach(id => {
+  ['mine','archive','search','qa','compare'].forEach(id => {
     document.getElementById('sub-' + id).classList.remove('active');
     document.getElementById('sub-btn-' + id).classList.remove('active');
   });
@@ -1325,5 +1418,393 @@ function esc(s) { return (s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
 loadAlarm();
 startBriefing();
 
+</script>
 
+<script type="module">
+// ─────────────────────────────────────────────────────────────────────────────
+// FIREBASE — Friends' Thoughts & Questions board
+// ─────────────────────────────────────────────────────────────────────────────
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
+import {
+  getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, increment,
+  query, orderBy, limit, startAfter, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
+import {
+  getAuth, signInAnonymously, onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyC1B0LWd2pZNBjXoZG4KTCeLZFwYuJJ2zs",
+  authDomain: "legally-business.firebaseapp.com",
+  projectId: "legally-business",
+  storageBucket: "legally-business.firebasestorage.app",
+  messagingSenderId: "361699250890",
+  appId: "1:361699250890:web:c621b10cbe9c0016489a33"
+};
+
+const fbApp = initializeApp(firebaseConfig);
+const db    = getFirestore(fbApp);
+const auth  = getAuth(fbApp);
+
+const NICK_KEY = 'lexbrief_nickname';
+let nickname   = '';
+let lastDoc    = null;   // pagination cursor for the My Thoughts feed
+let feedLoaded = false;
+let myUid      = null;   // set once signInAnonymously resolves — required to post/edit/delete
+const thoughtsCache = {};              // id -> raw thought data, for inline edit
+const commentsCache = {};              // `${thoughtId}:${commentId}` -> raw comment data, for inline edit
+
+function setComposeEnabled(enabled, hintMsg) {
+  const btn = document.getElementById('thought-post-btn');
+  if (btn) btn.disabled = !enabled;
+  const hint = document.getElementById('thought-auth-hint');
+  if (hint) hint.textContent = hintMsg || '';
+}
+
+onAuthStateChanged(auth, user => {
+  if (!user) return;
+  myUid = user.uid;
+  setComposeEnabled(true);
+  if (feedLoaded) initThoughtsFeed();   // re-render so "내가 쓴 글"에 수정·삭제 버튼이 뜨도록
+});
+
+signInAnonymously(auth).catch(() => {
+  setComposeEnabled(false, '로그인에 실패했어요. 잠시 후 새로고침해 주세요.');
+});
+
+function escHtml(s) {
+  return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function timeAgo(ts) {
+  if (!ts) return '';
+  const ms  = Date.now() - ts.toMillis();
+  const min = Math.floor(ms / 60000);
+  if (min < 1)  return '방금 전';
+  if (min < 60) return `${min}분 전`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24)  return `${hr}시간 전`;
+  const day = Math.floor(hr / 24);
+  return `${day}일 전`;
+}
+
+// ── Start gate ──────────────────────────────────────────────────────────────
+function onGateNicknameInput() {
+  const v = document.getElementById('gate-nickname').value.trim();
+  document.getElementById('gate-enter-btn').disabled = !v;
+}
+
+function enterApp() {
+  const input = document.getElementById('gate-nickname');
+  const v = input.value.trim();
+  if (!v) return;
+  nickname = v;
+  try { localStorage.setItem(NICK_KEY, nickname); } catch {}
+  document.getElementById('start-gate').classList.add('hidden');
+  document.getElementById('app-root').style.display = 'flex';
+  if (!feedLoaded) initThoughtsFeed();
+}
+
+async function renderGateRecent() {
+  const el = document.getElementById('gate-recent-list');
+  try {
+    const q    = query(collection(db, 'thoughts'), orderBy('createdAt', 'desc'), limit(5));
+    const snap = await getDocs(q);
+    if (snap.empty) {
+      el.innerHTML = '<div class="hint" style="padding:1rem 0">아직 등록된 의견이 없어요.</div>';
+      return;
+    }
+    el.innerHTML = snap.docs.map(d => {
+      const t = d.data();
+      return `
+        <div class="start-recent-item">
+          <div class="start-recent-nick">${escHtml(t.nickname)}</div>
+          <div class="start-recent-text">${escHtml(t.text)}</div>
+          <div class="start-recent-time">${timeAgo(t.createdAt)}</div>
+        </div>`;
+    }).join('');
+  } catch (e) {
+    el.innerHTML = '<div class="hint" style="padding:1rem 0">최근 의견을 불러오지 못했어요.</div>';
+  }
+}
+
+// ── My Thoughts feed (inside the app) ───────────────────────────────────────
+function thoughtCardHtml(id, t) {
+  thoughtsCache[id] = t;
+  const mine      = !!(myUid && t.authorUid && t.authorUid === myUid);
+  const editedTag = t.editedAt ? ' <span class="thought-edited">(수정됨)</span>' : '';
+  const ownerBtns = mine
+    ? `<button class="btn-ghost" onclick="editThought('${id}')">수정</button>
+       <button class="btn-ghost" id="thought-del-${id}" onclick="deleteThought('${id}')">삭제</button>`
+    : '';
+  return `
+    <div class="thought-card" id="thought-${id}">
+      <div class="thought-card-head">
+        <span class="thought-nick">${escHtml(t.nickname)}</span>
+        <span class="thought-time">${timeAgo(t.createdAt)}${editedTag}</span>
+      </div>
+      <div class="thought-text" id="thought-text-${id}">${escHtml(t.text)}</div>
+      <div class="thought-card-actions">
+        <button class="btn-ghost" onclick="toggleComments('${id}')" id="thought-ctoggle-${id}">💬 댓글 ${t.commentCount || 0}개</button>
+        ${ownerBtns}
+      </div>
+      <div class="thought-comments" id="thought-comments-${id}">
+        <div id="thought-clist-${id}"></div>
+        <div class="comment-input-row">
+          <input type="text" id="thought-cinput-${id}" placeholder="댓글 남기기…" maxlength="500" onkeydown="if(event.key==='Enter')postComment('${id}')">
+          <button onclick="postComment('${id}')">등록</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function commentItemHtml(thoughtId, commentId, c) {
+  commentsCache[thoughtId + ':' + commentId] = c;
+  const mine      = !!(myUid && c.authorUid && c.authorUid === myUid);
+  const editedTag = c.editedAt ? ' <span class="thought-edited">(수정됨)</span>' : '';
+  const ownerBtns = mine
+    ? `<button class="comment-mini-btn" onclick="editComment('${thoughtId}','${commentId}')">수정</button>
+       <button class="comment-mini-btn" id="comment-del-${commentId}" onclick="deleteComment('${thoughtId}','${commentId}')">삭제</button>`
+    : '';
+  return `
+    <div class="comment-item" id="comment-${commentId}">
+      <div class="comment-nick">${escHtml(c.nickname)}${editedTag}</div>
+      <div class="comment-text" id="comment-text-${commentId}">${escHtml(c.text)}</div>
+      <div class="comment-actions">${ownerBtns}</div>
+    </div>`;
+}
+
+// ── Edit / delete a thought (owner only — enforced server-side by firestore.rules) ──
+function editThought(id) {
+  const t = thoughtsCache[id];
+  if (!t) return;
+  document.getElementById('thought-text-' + id).innerHTML = `
+    <textarea class="edit-textarea" id="thought-edit-input-${id}" maxlength="500">${escHtml(t.text)}</textarea>
+    <div class="edit-actions">
+      <button class="btn-ghost" onclick="cancelEditThought('${id}')">취소</button>
+      <button class="btn-primary" onclick="saveThoughtEdit('${id}')">저장</button>
+    </div>`;
+}
+
+function cancelEditThought(id) {
+  const t = thoughtsCache[id];
+  if (!t) return;
+  document.getElementById('thought-text-' + id).textContent = t.text;
+}
+
+async function saveThoughtEdit(id) {
+  const input = document.getElementById('thought-edit-input-' + id);
+  const text  = input.value.trim();
+  if (!text || !myUid) return;
+  try {
+    await updateDoc(doc(db, 'thoughts', id), { text, editedAt: serverTimestamp() });
+    thoughtsCache[id].text     = text;
+    thoughtsCache[id].editedAt = { toMillis: () => Date.now() };
+    document.getElementById('thought-text-' + id).textContent = text;
+    const timeEl = document.querySelector('#thought-' + id + ' .thought-time');
+    if (timeEl && !timeEl.querySelector('.thought-edited')) {
+      timeEl.insertAdjacentHTML('beforeend', ' <span class="thought-edited">(수정됨)</span>');
+    }
+  } catch (e) {
+    alert('수정에 실패했어요: ' + e.message);
+  }
+}
+
+async function deleteThought(id) {
+  if (!myUid) return;
+  if (!confirm('정말 삭제할까요?')) return;
+  const btn = document.getElementById('thought-del-' + id);
+  if (btn) btn.disabled = true;
+  try {
+    await deleteDoc(doc(db, 'thoughts', id));
+    delete thoughtsCache[id];
+    document.getElementById('thought-' + id)?.remove();
+  } catch (e) {
+    alert('삭제에 실패했어요: ' + e.message);
+    if (btn) btn.disabled = false;
+  }
+}
+
+// ── Edit / delete a comment (owner only) ─────────────────────────────────────
+function editComment(thoughtId, commentId) {
+  const c = commentsCache[thoughtId + ':' + commentId];
+  if (!c) return;
+  document.getElementById('comment-text-' + commentId).innerHTML = `
+    <textarea class="edit-textarea" id="comment-edit-input-${commentId}" maxlength="500" rows="2">${escHtml(c.text)}</textarea>
+    <div class="edit-actions">
+      <button class="comment-mini-btn" onclick="cancelEditComment('${thoughtId}','${commentId}')">취소</button>
+      <button class="comment-mini-btn" onclick="saveCommentEdit('${thoughtId}','${commentId}')">저장</button>
+    </div>`;
+}
+
+function cancelEditComment(thoughtId, commentId) {
+  const c = commentsCache[thoughtId + ':' + commentId];
+  if (!c) return;
+  document.getElementById('comment-text-' + commentId).textContent = c.text;
+}
+
+async function saveCommentEdit(thoughtId, commentId) {
+  const input = document.getElementById('comment-edit-input-' + commentId);
+  const text  = input.value.trim();
+  if (!text || !myUid) return;
+  const key = thoughtId + ':' + commentId;
+  try {
+    await updateDoc(doc(db, 'thoughts', thoughtId, 'comments', commentId), { text, editedAt: serverTimestamp() });
+    commentsCache[key].text     = text;
+    commentsCache[key].editedAt = { toMillis: () => Date.now() };
+    document.getElementById('comment-text-' + commentId).textContent = text;
+    const nickEl = document.querySelector('#comment-' + commentId + ' .comment-nick');
+    if (nickEl && !nickEl.querySelector('.thought-edited')) {
+      nickEl.insertAdjacentHTML('beforeend', ' <span class="thought-edited">(수정됨)</span>');
+    }
+  } catch (e) {
+    alert('수정에 실패했어요: ' + e.message);
+  }
+}
+
+async function deleteComment(thoughtId, commentId) {
+  if (!myUid) return;
+  if (!confirm('정말 삭제할까요?')) return;
+  const btn = document.getElementById('comment-del-' + commentId);
+  if (btn) btn.disabled = true;
+  try {
+    await deleteDoc(doc(db, 'thoughts', thoughtId, 'comments', commentId));
+  } catch (e) {
+    alert('삭제에 실패했어요: ' + e.message);
+    if (btn) btn.disabled = false;
+    return;
+  }
+  delete commentsCache[thoughtId + ':' + commentId];
+  document.getElementById('comment-' + commentId)?.remove();
+  const toggle = document.getElementById('thought-ctoggle-' + thoughtId);
+  if (toggle) {
+    const n = Math.max(0, (parseInt(toggle.textContent.match(/\d+/)?.[0] || '0', 10)) - 1);
+    toggle.textContent = `💬 댓글 ${n}개`;
+  }
+  try {
+    await updateDoc(doc(db, 'thoughts', thoughtId), { commentCount: increment(-1) });
+  } catch (e) {
+    // 부모 글이 그사이 삭제됐거나 네트워크 문제 — commentCount는 다음 전체 새로고침 때까지
+    // 약간 어긋날 수 있지만, 댓글 삭제 자체는 이미 성공했으니 조용히 무시한다.
+  }
+}
+
+async function initThoughtsFeed() {
+  feedLoaded = true;
+  const feedEl = document.getElementById('thought-feed');
+  feedEl.innerHTML = '<div class="hint">불러오는 중…</div>';
+  try {
+    const q    = query(collection(db, 'thoughts'), orderBy('createdAt', 'desc'), limit(50));
+    const snap = await getDocs(q);
+    if (snap.empty) {
+      feedEl.innerHTML = '<div class="hint">아직 등록된 의견이 없어요. 첫 의견을 남겨보세요!</div>';
+      return;
+    }
+    lastDoc = snap.docs[snap.docs.length - 1];
+    feedEl.innerHTML = snap.docs.map(d => thoughtCardHtml(d.id, d.data())).join('');
+    document.getElementById('thought-more-btn').style.display = snap.docs.length < 50 ? 'none' : 'inline-flex';
+  } catch (e) {
+    feedEl.innerHTML = '<div class="hint">의견을 불러오지 못했어요.</div>';
+  }
+}
+
+async function loadMoreThoughts() {
+  if (!lastDoc) return;
+  const moreBtn = document.getElementById('thought-more-btn');
+  moreBtn.disabled = true;
+  try {
+    const q    = query(collection(db, 'thoughts'), orderBy('createdAt', 'desc'), startAfter(lastDoc), limit(50));
+    const snap = await getDocs(q);
+    if (snap.empty) { moreBtn.style.display = 'none'; return; }
+    lastDoc = snap.docs[snap.docs.length - 1];
+    document.getElementById('thought-feed').insertAdjacentHTML('beforeend', snap.docs.map(d => thoughtCardHtml(d.id, d.data())).join(''));
+    moreBtn.style.display = snap.docs.length < 50 ? 'none' : 'inline-flex';
+  } finally {
+    moreBtn.disabled = false;
+  }
+}
+
+async function postThought() {
+  const input = document.getElementById('thought-input');
+  const text  = input.value.trim();
+  if (!text || !nickname || !myUid) return;
+  const btn = document.getElementById('thought-post-btn');
+  btn.disabled = true;
+  try {
+    const docRef = await addDoc(collection(db, 'thoughts'), {
+      nickname, text, createdAt: serverTimestamp(), commentCount: 0, authorUid: myUid
+    });
+    input.value = '';
+    const feedEl = document.getElementById('thought-feed');
+    if (feedEl.querySelector('.hint')) feedEl.innerHTML = '';
+    feedEl.insertAdjacentHTML('afterbegin', thoughtCardHtml(docRef.id, { nickname, text, authorUid: myUid, createdAt: { toMillis: () => Date.now() }, commentCount: 0 }));
+  } catch (e) {
+    alert('게시에 실패했어요: ' + e.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── Comments ─────────────────────────────────────────────────────────────────
+async function toggleComments(thoughtId) {
+  const box  = document.getElementById('thought-comments-' + thoughtId);
+  const open = box.classList.toggle('open');
+  if (open && !box.dataset.loaded) {
+    box.dataset.loaded = '1';
+    const listEl = document.getElementById('thought-clist-' + thoughtId);
+    listEl.innerHTML = '<div class="hint" style="padding:.5rem 0">불러오는 중…</div>';
+    try {
+      const q    = query(collection(db, 'thoughts', thoughtId, 'comments'), orderBy('createdAt', 'asc'));
+      const snap = await getDocs(q);
+      listEl.innerHTML = snap.empty
+        ? ''
+        : snap.docs.map(d => commentItemHtml(thoughtId, d.id, d.data())).join('');
+    } catch (e) {
+      listEl.innerHTML = '<div class="hint" style="padding:.5rem 0">댓글을 불러오지 못했어요.</div>';
+    }
+  }
+}
+
+async function postComment(thoughtId) {
+  const input = document.getElementById('thought-cinput-' + thoughtId);
+  const text  = input.value.trim();
+  if (!text || !nickname || !myUid) return;
+  try {
+    const commentRef = await addDoc(collection(db, 'thoughts', thoughtId, 'comments'), {
+      nickname, text, createdAt: serverTimestamp(), authorUid: myUid
+    });
+    await updateDoc(doc(db, 'thoughts', thoughtId), { commentCount: increment(1) });
+    input.value = '';
+    const listEl = document.getElementById('thought-clist-' + thoughtId);
+    listEl.insertAdjacentHTML('beforeend', commentItemHtml(thoughtId, commentRef.id, { nickname, text, authorUid: myUid }));
+    const toggle = document.getElementById('thought-ctoggle-' + thoughtId);
+    const n = (parseInt(toggle.textContent.match(/\d+/)?.[0] || '0', 10)) + 1;
+    toggle.textContent = `💬 댓글 ${n}개`;
+  } catch (e) {
+    alert('댓글 등록에 실패했어요: ' + e.message);
+  }
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+try {
+  const saved = localStorage.getItem(NICK_KEY);
+  if (saved) document.getElementById('gate-nickname').value = saved;
+  onGateNicknameInput();
+} catch {}
+renderGateRecent();
+
+window.onGateNicknameInput = onGateNicknameInput;
+window.enterApp            = enterApp;
+window.postThought         = postThought;
+window.loadMoreThoughts    = loadMoreThoughts;
+window.toggleComments      = toggleComments;
+window.postComment         = postComment;
+window.editThought         = editThought;
+window.cancelEditThought   = cancelEditThought;
+window.saveThoughtEdit     = saveThoughtEdit;
+window.deleteThought       = deleteThought;
+window.editComment         = editComment;
+window.cancelEditComment   = cancelEditComment;
+window.saveCommentEdit     = saveCommentEdit;
+window.deleteComment       = deleteComment;
 </script>

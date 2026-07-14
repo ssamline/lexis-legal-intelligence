@@ -1,0 +1,59 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /thoughts/{thoughtId} {
+      allow read: if true;
+
+      allow create: if request.auth != null
+                    && request.resource.data.keys().hasOnly(['nickname','text','createdAt','commentCount','authorUid'])
+                    && request.resource.data.authorUid == request.auth.uid
+                    && request.resource.data.nickname is string
+                    && request.resource.data.nickname.size() > 0
+                    && request.resource.data.nickname.size() <= 20
+                    && request.resource.data.text is string
+                    && request.resource.data.text.size() > 0
+                    && request.resource.data.text.size() <= 500
+                    && request.resource.data.commentCount == 0;
+
+      // 댓글 수 증감(+-1, 0 미만 불가) — 댓글을 달거나 지운 누구나 호출
+      allow update: if request.auth != null
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['commentCount'])
+                    && request.resource.data.commentCount >= 0
+                    && (request.resource.data.commentCount == resource.data.commentCount + 1
+                        || request.resource.data.commentCount == resource.data.commentCount - 1);
+
+      // 본문 수정 — 작성자 본인만, authorUid/nickname/createdAt은 불변
+      allow update: if request.auth != null
+                    && request.auth.uid == resource.data.authorUid
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text','editedAt'])
+                    && request.resource.data.text is string
+                    && request.resource.data.text.size() > 0
+                    && request.resource.data.text.size() <= 500;
+
+      allow delete: if request.auth != null && request.auth.uid == resource.data.authorUid;
+
+      match /comments/{commentId} {
+        allow read: if true;
+
+        allow create: if request.auth != null
+                      && request.resource.data.keys().hasOnly(['nickname','text','createdAt','authorUid'])
+                      && request.resource.data.authorUid == request.auth.uid
+                      && request.resource.data.nickname is string
+                      && request.resource.data.nickname.size() > 0
+                      && request.resource.data.nickname.size() <= 20
+                      && request.resource.data.text is string
+                      && request.resource.data.text.size() > 0
+                      && request.resource.data.text.size() <= 500;
+
+        allow update: if request.auth != null
+                      && request.auth.uid == resource.data.authorUid
+                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text','editedAt'])
+                      && request.resource.data.text is string
+                      && request.resource.data.text.size() > 0
+                      && request.resource.data.text.size() <= 500;
+
+        allow delete: if request.auth != null && request.auth.uid == resource.data.authorUid;
+      }
+    }
+  }
+}
