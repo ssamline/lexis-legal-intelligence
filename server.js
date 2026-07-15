@@ -10,7 +10,8 @@ const RSS_PATHS = [
   '/feed', '/rss', '/feed.xml', '/rss.xml', '/atom.xml',
   '/feed/rss', '/rss/feed', '/news/feed', '/feed/news',
   '/?feed=rss2', '/index.xml', '/feeds/posts/default',
-  '/blog/feed', '/articles/feed', '/legal-news/feed'
+  '/blog/feed', '/articles/feed', '/legal-news/feed',
+  '/rss/allArticle.xml'
 ];
 
 function decodeEntities(s) {
