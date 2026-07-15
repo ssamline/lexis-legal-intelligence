@@ -137,14 +137,15 @@ app.get('/api/health', (req, res) => {
 // Fetch articles directly from user-selected source domains
 app.post('/api/search-news', async (req, res) => {
   const { urls = [] } = req.body;
-  if (!urls.length) return res.json({ articles: [] });
+  if (!urls.length) return res.json({ articles: [], failedDomains: [] });
 
   try {
     const results = await Promise.all(urls.map(domain => fetchSiteArticles(domain)));
     const articles = results.flat();
-    res.json({ articles });
+    const failedDomains = urls.filter((_, i) => results[i].length === 0);
+    res.json({ articles, failedDomains });
   } catch (e) {
-    res.json({ articles: [] });
+    res.json({ articles: [], failedDomains: urls });
   }
 });
 

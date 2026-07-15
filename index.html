@@ -367,6 +367,7 @@ body{font-family:Georgia,serif;background:var(--surface);color:var(--ink);min-he
               <div id="brief-err-msg" style="font-size:13px;color:#dc2626;font-family:Arial,sans-serif;margin-bottom:14px"></div>
               <button class="btn-primary" onclick="generateBriefing()">↻ <span data-i18n="brief.try_again">Try again</span></button>
             </div>
+            <div id="source-warning" class="note" style="display:none;margin-bottom:1rem"></div>
             <div id="brief-out" style="display:none"></div>
             <!-- Podcast audio player -->
             <div id="audio-bar" style="display:none;margin-top:1rem;padding:12px 0 4px;border-top:1px solid var(--rule)">
@@ -610,11 +611,12 @@ const S = {
   sectors:   {},
   keywords:  [],
   companies: [],
-  urls:      ['law360.com','courthousenews.com'],
+  urls:      ['natlawreview.com','complianceweek.com','abajournal.com','courthousenews.com','lawgazette.co.uk'],
   context:   '',
   chatHist:  [],
   archive:   [],
   articles:  [],  // fetched news articles for current briefing [{topic,title,link,domain}]
+  failedSources: [], // domains that returned zero articles on the last fetch
   trendConfig: { topics: [], days: 7 }
 };
 window.S = S; // exposes S to the Firebase module script (const bindings aren't window properties)
@@ -916,6 +918,7 @@ async function generateBriefing(retries = 1) {
 
   document.getElementById('brief-empty').style.display = 'none';
   document.getElementById('brief-out').style.display   = 'none';
+  document.getElementById('source-warning').style.display = 'none';
   document.getElementById('brief-spin').style.display  = 'inline-flex';
   document.getElementById('renew-btn').disabled        = true;
 
@@ -931,6 +934,7 @@ async function generateBriefing(retries = 1) {
 
   // Fetch articles directly from user's chosen source websites
   S.articles = [];
+  S.failedSources = [];
   let articleCtx = '';
   try {
     const newsRes  = await fetch('/api/search-news', {
@@ -938,7 +942,8 @@ async function generateBriefing(retries = 1) {
       body: JSON.stringify({ urls: S.urls })
     });
     const newsData = await newsRes.json();
-    S.articles = newsData.articles || [];
+    S.articles      = newsData.articles || [];
+    S.failedSources = newsData.failedDomains || [];
     if (S.articles.length) {
       articleCtx = '\n\nRecent articles fetched from the user\'s selected sources:\n' +
         S.articles.map((a, i) => `${i+1}. (${a.domain}) ${a.title}`).join('\n');
@@ -947,10 +952,13 @@ async function generateBriefing(retries = 1) {
 
   const hasArticles = S.articles.length > 0;
   const foreignInstr = ` Additionally, inspect the article list above by their (domain) prefix — if any domain's article titles are written in a language other than English, identify each such distinct language. For each one, write a 3-5 sentence summary paragraph, written ENTIRELY in that language, covering only the legal and business developments implied by that domain's titles, scoped to topics: ${topicNames}${activeSectors.length ? ' and business sectors: ' + activeSectors.join(', ') : ''}. Add one entry per distinct non-English language to a "foreignSummaries" array: {"language":"<language name in English, e.g. French>","text":"<summary written in that language>"}. If every source domain's titles are in English, return "foreignSummaries": [].`;
+  const failedSourcesInstr = S.failedSources.length
+    ? ` Additionally, for each of these source domains that returned no articles today — ${S.failedSources.join(', ')} — suggest ONE real, well-known alternative English-language legal or business-regulatory news site (one likely to have a working public RSS feed) that covers similar ground. Add one entry per failed domain to a "sourceAlternatives" array: {"failedDomain":"...","suggestion":"suggested-domain.com","reason":"one short sentence why"}.`
+    : '';
   const system = `You are a senior legal news analyst. Generate a concise daily legal briefing for ${today}. Topics: ${topicNames}.${kwExtra}${bizInstr}
-${hasArticles ? articleCtx + `\n\nUsing ONLY the articles listed above, select and summarize the ones most strategically significant for the selected topics${activeSectors.length ? ' and business sectors' : ''} — prioritize by likely business/legal impact (deal risk, regulatory exposure, competitive positioning, revenue impact), never by which source domain or language an article happens to come from. Write 2-3 bullet summaries per section from that selection. Each bullet MUST reference one article by its number using "ref": <integer>. Do NOT copy URLs into the JSON.${foreignInstr}` : 'No live articles available — generate a plausible briefing based on current legal trends. Omit "ref" from bullets.'}
+${hasArticles ? articleCtx + `\n\nUsing ONLY the articles listed above, select and summarize the ones most strategically significant for the selected topics${activeSectors.length ? ' and business sectors' : ''} — prioritize by likely business/legal impact (deal risk, regulatory exposure, competitive positioning, revenue impact), never by which source domain or language an article happens to come from. Write 2-3 bullet summaries per section from that selection. Each bullet MUST reference one article by its number using "ref": <integer>. Do NOT copy URLs into the JSON.${foreignInstr}` : 'No live articles available — generate a plausible briefing based on current legal trends. Omit "ref" from bullets.'}${failedSourcesInstr}
 Reply ONLY in valid JSON, no markdown fences:
-{"sections":[{"topic":"ip","bullets":[{"text":"one-sentence summary of the article","ref":1}],"prose":"...","biz":[{"type":"opportunity","company":"","sector":"","text":"..."}]}],"foreignSummaries":[{"language":"French","text":"..."}]}
+{"sections":[{"topic":"ip","bullets":[{"text":"one-sentence summary of the article","ref":1}],"prose":"...","biz":[{"type":"opportunity","company":"","sector":"","text":"..."}]}],"foreignSummaries":[{"language":"French","text":"..."}],"sourceAlternatives":[{"failedDomain":"...","suggestion":"...","reason":"..."}]}
 Only include these topics: ${activeTopics.join(',')}.`;
 
   try {
@@ -998,6 +1006,21 @@ Only include these topics: ${activeTopics.join(',')}.`;
     });
 
     const foreignSummaries = Array.isArray(parsed.foreignSummaries) ? parsed.foreignSummaries : [];
+
+    const sourceAlternatives = Array.isArray(parsed.sourceAlternatives) ? parsed.sourceAlternatives : [];
+    const warnEl = document.getElementById('source-warning');
+    if (S.failedSources.length) {
+      const lines = S.failedSources.map(domain => {
+        const alt    = sourceAlternatives.find(a => a.failedDomain === domain);
+        const line   = alt ? t('brief.source_failed_try', {domain, suggestion: alt.suggestion}) : domain;
+        const reason = alt?.reason ? ` — ${alt.reason}` : '';
+        return `${line}${reason}`;
+      }).join('<br>');
+      warnEl.innerHTML = `⚠️ <span><strong>${t('brief.source_failed_title')}</strong><br>${lines}</span>`;
+      warnEl.style.display = 'flex';
+    } else {
+      warnEl.style.display = 'none';
+    }
 
     // Build context string (include biz items per section)
     S.context = parsed.sections.map(s=>{
@@ -1742,6 +1765,8 @@ const I18N = {
     'brief.podcast': 'Podcast Summary',
     'brief.no_saved': 'No saved briefings yet. Generate your first briefing on the Today tab.',
     'brief.foreign_summary_label': '🌐 Summary in {lang}',
+    'brief.source_failed_title': "Some sources didn't return articles today:",
+    'brief.source_failed_try': '{domain} — try {suggestion} instead',
     'archive.search_ph': 'Search archive by date, topic, or keyword…',
     'trend.title': 'Trend Analysis',
     'trend.desc': 'Analyze patterns across your saved briefings over a time period you choose. Leave all topics unselected to include everything.',
@@ -1868,6 +1893,8 @@ const I18N = {
     'brief.podcast': '팟캐스트 요약',
     'brief.no_saved': '저장된 브리핑이 아직 없어요. Today 탭에서 첫 브리핑을 만들어보세요.',
     'brief.foreign_summary_label': '🌐 {lang} 요약',
+    'brief.source_failed_title': '오늘 일부 소스에서 기사를 못 가져왔어요:',
+    'brief.source_failed_try': '{domain} — 대신 {suggestion} 시도해보세요',
     'archive.search_ph': '날짜·토픽·키워드로 아카이브 검색…',
     'trend.title': '트렌드 분석',
     'trend.desc': '원하는 기간 동안 저장된 브리핑들의 패턴을 분석합니다. 토픽을 하나도 안 고르면 전체를 포함합니다.',
@@ -1994,6 +2021,8 @@ const I18N = {
     'brief.podcast': 'Resumen en Podcast',
     'brief.no_saved': 'Aún no hay resúmenes guardados. Genera tu primer resumen en la pestaña Hoy.',
     'brief.foreign_summary_label': '🌐 Resumen en {lang}',
+    'brief.source_failed_title': 'Algunas fuentes no devolvieron artículos hoy:',
+    'brief.source_failed_try': '{domain} — prueba con {suggestion} en su lugar',
     'archive.search_ph': 'Buscar en el archivo por fecha, tema o palabra clave…',
     'trend.title': 'Análisis de Tendencias',
     'trend.desc': 'Analiza patrones en tus resúmenes guardados durante un período que elijas. Deja todos los temas sin seleccionar para incluirlos todos.',
@@ -2120,6 +2149,8 @@ const I18N = {
     'brief.podcast': 'Résumé Podcast',
     'brief.no_saved': "Aucun résumé enregistré pour l'instant. Générez votre premier résumé dans l'onglet Aujourd'hui.",
     'brief.foreign_summary_label': '🌐 Résumé en {lang}',
+    'brief.source_failed_title': "Certaines sources n'ont renvoyé aucun article aujourd'hui :",
+    'brief.source_failed_try': '{domain} — essayez {suggestion} à la place',
     'archive.search_ph': 'Rechercher dans les archives par date, sujet ou mot-clé…',
     'trend.title': 'Analyse de Tendances',
     'trend.desc': 'Analysez les tendances de vos résumés enregistrés sur une période de votre choix. Ne sélectionnez aucun sujet pour tout inclure.',
@@ -2246,6 +2277,8 @@ const I18N = {
     'brief.podcast': '播客摘要',
     'brief.no_saved': '还没有保存的简报。请在"今日"标签生成您的第一份简报。',
     'brief.foreign_summary_label': '🌐 {lang}摘要',
+    'brief.source_failed_title': '今天部分来源没有返回文章：',
+    'brief.source_failed_try': '{domain} — 请尝试改用 {suggestion}',
     'archive.search_ph': '按日期、主题或关键词搜索归档…',
     'trend.title': '趋势分析',
     'trend.desc': '分析您所选时间段内保存的简报中的模式。不选任何主题即包含全部内容。',
@@ -2372,6 +2405,8 @@ const I18N = {
     'brief.podcast': 'ポッドキャスト要約',
     'brief.no_saved': 'まだ保存されたブリーフィングがありません。Todayタブで最初のブリーフィングを作成してください。',
     'brief.foreign_summary_label': '🌐 {lang}要約',
+    'brief.source_failed_title': '本日、一部のソースから記事を取得できませんでした：',
+    'brief.source_failed_try': '{domain} — 代わりに{suggestion}をお試しください',
     'archive.search_ph': '日付・トピック・キーワードでアーカイブを検索…',
     'trend.title': 'トレンド分析',
     'trend.desc': '選択した期間の保存済みブリーフィングのパターンを分析します。トピックを何も選ばなければ全体が対象になります。',
@@ -2610,7 +2645,7 @@ function escHtml(s) {
 // find-cause). Language is deliberately left untouched — it's a browser
 // display preference, not per-user private data (see plan section 6).
 function resetLocalSettingsToDefaults() {
-  window.S.urls      = ['law360.com', 'courthousenews.com'];
+  window.S.urls      = ['natlawreview.com', 'complianceweek.com', 'abajournal.com', 'courthousenews.com', 'lawgazette.co.uk'];
   window.S.topics    = { ip: true, reg: true, lit: true, corp: true };
   window.S.sectors   = {};
   window.S.keywords  = [];
