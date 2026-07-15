@@ -44,33 +44,88 @@ function parseXmlItems(xml, sourceDomain, maxItems = 8) {
   return out;
 }
 
+async function tryFetchFeed(url, domain) {
+  try {
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; LexBrief/1.0)',
+        'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*'
+      },
+      signal: AbortSignal.timeout(6000),
+      redirect: 'follow'
+    });
+    if (!res.ok) return [];
+    const ct = res.headers.get('content-type') || '';
+    if (ct.includes('html') && !ct.includes('xml')) return []; // skip HTML pages
+    const xml = await res.text();
+    if (!xml.includes('<item>') && !xml.includes('<entry>')) return [];
+    return parseXmlItems(xml, domain, 8);
+  } catch {
+    return [];
+  }
+}
+
+function findFeedLinkInHtml(html) {
+  const linkTags = [...html.matchAll(/<link\b[^>]*>/gi)].map(m => m[0]);
+  const candidates = linkTags.filter(tag =>
+    /rel=["']?alternate["']?/i.test(tag) &&
+    /type=["']?application\/(?:rss|atom)\+xml["']?/i.test(tag)
+  );
+  // WordPress (very common among small news/blog sites) emits a "Comments
+  // Feed" <link> alongside the real article feed — usually after it, but
+  // that order isn't guaranteed. Skip anything whose title says "comment"
+  // so we don't silently parse blog comments instead of articles.
+  const primary = candidates.find(tag => !/title=["'][^"']*comment/i.test(tag)) || candidates[0];
+  if (!primary) return null;
+  const hrefMatch = primary.match(/href=["']([^"']+)["']/i) || primary.match(/href=([^\s>]+)/i);
+  return hrefMatch ? decodeEntities(hrefMatch[1]) : null;
+}
+
+async function discoverFeedUrl(base) {
+  try {
+    const res = await fetch(base + '/', {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml'
+      },
+      signal: AbortSignal.timeout(6000),
+      redirect: 'follow'
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+    const href = findFeedLinkInHtml(html);
+    return href ? new URL(href, base + '/').href : null;
+  } catch {
+    return null;
+  }
+}
+
 async function fetchSiteArticles(domain) {
   const base = /^https?:\/\//.test(domain)
     ? domain.replace(/\/$/, '')
     : `https://${domain}`;
 
-  for (const feedPath of RSS_PATHS) {
-    try {
-      const res = await fetch(base + feedPath, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; LexBrief/1.0)',
-          'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*'
-        },
-        signal: AbortSignal.timeout(6000),
-        redirect: 'follow'
-      });
-      if (!res.ok) continue;
-      const ct = res.headers.get('content-type') || '';
-      if (ct.includes('html') && !ct.includes('xml')) continue; // skip HTML pages
-      const xml = await res.text();
-      if (!xml.includes('<item>') && !xml.includes('<entry>')) continue;
-      const items = parseXmlItems(xml, domain, 8);
-      if (items.length) {
-        console.log(`[RSS] ${domain}${feedPath} → ${items.length} articles`);
-        return items;
-      }
-    } catch { /* try next path */ }
+  // 1. Ask the homepage what feed it actually advertises — works for any
+  //    domain that follows the standard, regardless of path convention.
+  const discovered = await discoverFeedUrl(base);
+  if (discovered) {
+    const items = await tryFetchFeed(discovered, domain);
+    if (items.length) {
+      console.log(`[RSS] ${domain} via discovered link (${discovered}) → ${items.length} articles`);
+      return items;
+    }
   }
+
+  // 2. Fall back to guessing common paths — still catches sites that
+  //    don't advertise a <link> tag but do have a feed at a known path.
+  for (const feedPath of RSS_PATHS) {
+    const items = await tryFetchFeed(base + feedPath, domain);
+    if (items.length) {
+      console.log(`[RSS] ${domain}${feedPath} → ${items.length} articles`);
+      return items;
+    }
+  }
+
   console.warn(`[RSS] No feed found for ${domain}`);
   return [];
 }
