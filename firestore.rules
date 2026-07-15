@@ -55,5 +55,48 @@ service cloud.firestore {
         allow delete: if request.auth != null && request.auth.uid == resource.data.authorUid;
       }
     }
+
+    // Per-nickname profile: Sources & Topics settings + Daily Briefing archive,
+    // synced across devices by the SAME real account. Nicknames are claimed via
+    // Firebase Auth email/password (linkWithCredential upgrading an anonymous
+    // session, or signInWithEmailAndPassword on return) — see
+    // spec_firebase_thoughts.md section 12. request.auth.uid is now a genuine,
+    // password-verified owner identity, not a device-bound anonymous session,
+    // so real ownership enforcement (including on reads) is possible here.
+    match /users/{nickname} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.ownerUid;
+
+      allow create: if request.auth != null
+                    && request.resource.data.ownerUid == request.auth.uid
+                    && request.resource.data.keys().hasOnly(
+                         ['ownerUid','urls','topics','sectors','keywords','companies','lang','trendConfig','archiveSchedule','updatedAt'])
+                    && request.resource.data.urls is list && request.resource.data.urls.size() <= 30
+                    && request.resource.data.keywords is list && request.resource.data.keywords.size() <= 50
+                    && request.resource.data.companies is list && request.resource.data.companies.size() <= 30
+                    && request.resource.data.lang is string;
+
+      allow update: if request.auth != null
+                    && request.auth.uid == resource.data.ownerUid
+                    && request.resource.data.ownerUid == resource.data.ownerUid
+                    && request.resource.data.keys().hasOnly(
+                         ['ownerUid','urls','topics','sectors','keywords','companies','lang','trendConfig','archiveSchedule','updatedAt'])
+                    && request.resource.data.urls is list && request.resource.data.urls.size() <= 30
+                    && request.resource.data.keywords is list && request.resource.data.keywords.size() <= 50
+                    && request.resource.data.companies is list && request.resource.data.companies.size() <= 30
+                    && request.resource.data.lang is string;
+
+      match /archive/{entryId} {
+        allow read: if request.auth != null
+                    && request.auth.uid == get(/databases/$(database)/documents/users/$(nickname)).data.ownerUid;
+        allow create: if request.auth != null
+                      && request.auth.uid == get(/databases/$(database)/documents/users/$(nickname)).data.ownerUid
+                      && request.resource.data.html is string
+                      && request.resource.data.html.size() <= 200000
+                      && request.resource.data.context is string
+                      && request.resource.data.context.size() <= 50000;
+        allow update: if false;
+        allow delete: if false;
+      }
+    }
   }
 }

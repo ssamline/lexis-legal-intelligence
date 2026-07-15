@@ -271,19 +271,31 @@ body{font-family:Georgia,serif;background:var(--surface);color:var(--ink);min-he
     <div class="start-gate-logo">
       <div class="logo-mark" style="background:var(--accent);color:#fff">Lx</div>
       <div style="font-family:Georgia,serif;font-size:16px;color:var(--ink)">LexBrief</div>
+      <select id="gate-lang-select" onchange="setLanguage(this.value)" style="margin-left:auto;font-size:12px;font-family:Arial,sans-serif;padding:4px 6px;border:1px solid var(--rule);border-radius:6px;background:var(--white);color:var(--ink)">
+        <option value="en">English</option>
+        <option value="ko">한국어</option>
+        <option value="es">Español</option>
+        <option value="fr">Français</option>
+        <option value="zh">中文</option>
+        <option value="ja">日本語</option>
+      </select>
     </div>
     <div class="start-gate-card">
-      <h1>닉네임을 입력하고 시작하세요</h1>
-      <p>친구들과 의견·질문을 나누려면 먼저 닉네임이 필요해요.</p>
+      <h1 data-i18n="gate.title">Enter a nickname to get started</h1>
+      <p data-i18n="gate.desc">You'll need a nickname to share opinions and questions with friends. A new nickname registers a password on the spot; an existing nickname needs the same password to sign back in.</p>
       <div class="start-gate-row">
-        <input id="gate-nickname" type="text" placeholder="닉네임" maxlength="20" oninput="onGateNicknameInput()" onkeydown="if(event.key==='Enter')enterApp()">
-        <button id="gate-enter-btn" disabled onclick="enterApp()">시작하기</button>
+        <input id="gate-nickname" type="text" data-i18n-ph="gate.nickname_ph" placeholder="Nickname" maxlength="20" oninput="onGateNicknameInput()" onkeydown="if(event.key==='Enter')enterApp()">
       </div>
+      <div class="start-gate-row">
+        <input id="gate-password" type="password" data-i18n-ph="gate.password_ph" placeholder="Password (4+ characters)" maxlength="40" oninput="onGateNicknameInput()" onkeydown="if(event.key==='Enter')enterApp()">
+        <button id="gate-enter-btn" disabled onclick="enterApp()" data-i18n="gate.start_btn">Get started</button>
+      </div>
+      <div class="hint" id="gate-error" style="padding:4px 0 0;color:#dc2626;text-align:left"></div>
     </div>
     <div class="start-gate-card">
-      <div class="start-recent-title">최근 의견 &amp; 질문</div>
+      <div class="start-recent-title" data-i18n="gate.recent_title">Recent thoughts &amp; questions</div>
       <div class="start-recent-list" id="gate-recent-list">
-        <div class="hint" style="padding:1rem 0">최근 의견을 불러오는 중…</div>
+        <div class="hint" style="padding:1rem 0" data-i18n="gate.recent_loading">Loading recent thoughts…</div>
       </div>
     </div>
   </div>
@@ -296,50 +308,100 @@ body{font-family:Georgia,serif;background:var(--surface);color:var(--ink);min-he
       <div class="logo-mark">Lx</div>
       <div>
         <div class="logo-text">LexBrief</div>
-        <div class="logo-sub">Legal Intelligence · Team Edition</div>
+        <div class="logo-sub" data-i18n="header.tagline">Legal Intelligence · Team Edition</div>
       </div>
     </div>
-    <div class="header-date" id="hdate"></div>
+    <div style="display:flex;align-items:center;gap:14px">
+      <select id="app-lang-select" onchange="setLanguage(this.value)" style="font-size:12px;font-family:Arial,sans-serif;padding:4px 6px;border:1px solid rgba(255,255,255,.3);border-radius:6px;background:rgba(255,255,255,.08);color:#fff">
+        <option value="en">English</option>
+        <option value="ko">한국어</option>
+        <option value="es">Español</option>
+        <option value="fr">Français</option>
+        <option value="zh">中文</option>
+        <option value="ja">日本語</option>
+      </select>
+      <div class="header-date" id="hdate"></div>
+    </div>
   </div>
 
   <div class="nav">
-    <button class="nav-btn active" id="nav-brief"    onclick="showPanel('brief',this)"   >📰 Daily Briefing</button>
-    <button class="nav-btn"        id="nav-thoughts"  onclick="showPanel('thoughts',this)">💬 Your Thoughts</button>
-    <button class="nav-btn"        id="nav-settings"  onclick="showPanel('settings',this)">⚙ Sources &amp; Topics</button>
+    <button class="nav-btn active" id="nav-brief"    onclick="showPanel('brief',this)"   >📰 <span data-i18n="nav.brief">Daily Briefing</span></button>
+    <button class="nav-btn"        id="nav-thoughts"  onclick="showPanel('thoughts',this)">🛠 <span data-i18n="nav.personal">Personal Tool</span></button>
+    <button class="nav-btn"        id="nav-sharing"   onclick="showPanel('sharing',this)" >💬 <span data-i18n="nav.sharing">Sharing Thoughts</span></button>
+    <button class="nav-btn"        id="nav-settings"  onclick="showPanel('settings',this)">⚙ <span data-i18n="nav.settings">Sources &amp; Topics</span></button>
   </div>
 
   <div class="main">
 
     <!-- ══ DAILY BRIEFING ══ -->
     <div class="panel active" id="panel-brief">
-      <div class="card">
-        <div class="card-head">
-          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-            <span class="card-title">Daily Briefing</span>
-            <span id="brief-badge" class="badge" style="display:none">📌 Ready</span>
-            <span id="brief-ts"   style="display:none;font-family:Arial,sans-serif;font-size:11px;color:var(--ink3)"></span>
-            <span id="brief-spin" style="display:none;font-family:Arial,sans-serif;font-size:11px;color:var(--ink3)">
-              <span class="spinner dark"></span>&nbsp;Generating…
-            </span>
-          </div>
-          <div style="display:flex;gap:8px;align-items:center">
-            <button class="btn-outline" id="listen-btn" onclick="listenBriefing()" style="display:none">▶ Listen</button>
-            <button class="btn-outline" id="renew-btn"  onclick="generateBriefing()">↻ Renew</button>
-          </div>
+
+      <!-- Today / Archive toggle -->
+      <div class="card" style="padding:0;overflow:hidden">
+        <div class="sub-nav">
+          <button class="sub-btn active" id="brief-view-today-btn"   onclick="showBriefView('today',this)" data-i18n="brief.today_tab">Today</button>
+          <button class="sub-btn"        id="brief-view-archive-btn" onclick="showBriefView('archive',this)">📚 <span data-i18n="brief.archive_tab">Archive</span></button>
         </div>
-        <div class="card-body">
-          <div id="brief-empty" style="text-align:center;padding:2rem 1rem;display:none">
-            <div id="brief-err-msg" style="font-size:13px;color:#dc2626;font-family:Arial,sans-serif;margin-bottom:14px"></div>
-            <button class="btn-primary" onclick="generateBriefing()">↻ Try again</button>
+      </div>
+
+      <div class="sub-panel active" id="briefview-today">
+        <div class="card">
+          <div class="card-head">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <span class="card-title" data-i18n="brief.title">Daily Briefing</span>
+              <span id="brief-badge" class="badge" style="display:none">📌 <span data-i18n="brief.ready">Ready</span></span>
+              <span id="brief-ts"   style="display:none;font-family:Arial,sans-serif;font-size:11px;color:var(--ink3)"></span>
+              <span id="brief-spin" style="display:none;font-family:Arial,sans-serif;font-size:11px;color:var(--ink3)">
+                <span class="spinner dark"></span>&nbsp;<span data-i18n="brief.generating">Generating…</span>
+              </span>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <button class="btn-outline" id="listen-btn" onclick="listenBriefing()" style="display:none">▶ <span data-i18n="brief.listen">Listen</span></button>
+              <button class="btn-outline" id="renew-btn"  onclick="generateBriefing()">↻ <span data-i18n="brief.renew">Renew</span></button>
+            </div>
           </div>
-          <div id="brief-out" style="display:none"></div>
-          <!-- Podcast audio player -->
-          <div id="audio-bar" style="display:none;margin-top:1rem;padding:12px 0 4px;border-top:1px solid var(--rule)">
-            <div style="font-family:Arial,sans-serif;font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px" id="audio-status">🎙 Podcast Summary</div>
-            <audio id="brief-audio" controls style="width:100%;height:36px"></audio>
+          <div class="card-body">
+            <div id="brief-empty" style="text-align:center;padding:2rem 1rem;display:none">
+              <div id="brief-err-msg" style="font-size:13px;color:#dc2626;font-family:Arial,sans-serif;margin-bottom:14px"></div>
+              <button class="btn-primary" onclick="generateBriefing()">↻ <span data-i18n="brief.try_again">Try again</span></button>
+            </div>
+            <div id="brief-out" style="display:none"></div>
+            <!-- Podcast audio player -->
+            <div id="audio-bar" style="display:none;margin-top:1rem;padding:12px 0 4px;border-top:1px solid var(--rule)">
+              <div style="font-family:Arial,sans-serif;font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px" id="audio-status">🎙 <span data-i18n="brief.podcast">Podcast Summary</span></div>
+              <audio id="brief-audio" controls style="width:100%;height:36px"></audio>
+            </div>
           </div>
         </div>
       </div>
+
+      <div class="sub-panel" id="briefview-archive">
+        <div class="url-input-row" style="margin-bottom:0">
+          <input id="archive-search" type="text" data-i18n-ph="archive.search_ph" placeholder="Search archive by date, topic, or keyword…" oninput="filterArchive(this.value)">
+        </div>
+
+        <div class="card">
+          <div class="card-head"><span class="card-title">📈 <span data-i18n="trend.title">Trend Analysis</span></span></div>
+          <div class="card-body">
+            <p style="font-family:Arial,sans-serif;font-size:13px;color:var(--ink3);margin-bottom:10px" data-i18n="trend.desc">Analyze patterns across your saved briefings over a time period you choose. Leave all topics unselected to include everything.</p>
+            <div class="topic-row" id="trend-topic-pills"></div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px">
+              <button class="btn-ghost" onclick="setTrendDays(7)" data-i18n="trend.last7">Last 7 days</button>
+              <button class="btn-ghost" onclick="setTrendDays(30)" data-i18n="trend.last30">Last 1 month</button>
+              <button class="btn-ghost" onclick="setTrendDays(90)" data-i18n="trend.last90">Last 3 months</button>
+              <input type="number" id="trend-days" min="1" max="365" value="7" style="width:70px;font-size:13px;padding:7px 10px;border:1px solid var(--rule);border-radius:var(--radius);font-family:Arial,sans-serif" onchange="onTrendDaysInput(this.value)">
+              <span style="font-family:Arial,sans-serif;font-size:12px;color:var(--ink3)" data-i18n="trend.days_label">days</span>
+              <button class="btn-primary" id="trend-run-btn" onclick="runTrendAnalysis()" style="margin-left:auto" data-i18n="trend.run">Run analysis</button>
+            </div>
+            <div id="trend-result" style="margin-top:14px"></div>
+          </div>
+        </div>
+
+        <div id="archive-cards">
+          <div class="hint">No saved briefings yet. Generate your first briefing on the Today tab.</div>
+        </div>
+      </div>
+
     </div>
 
     <!-- ══ RESEARCH HUB (Your Thoughts) ══ -->
@@ -348,55 +410,24 @@ body{font-family:Georgia,serif;background:var(--surface);color:var(--ink);min-he
       <!-- Sub-navigation -->
       <div class="card" style="padding:0;overflow:hidden">
         <div class="sub-nav">
-          <button class="sub-btn active" id="sub-btn-mine"    onclick="showSubPanel('mine',this)">📝 내 생각</button>
-          <button class="sub-btn" id="sub-btn-archive" onclick="showSubPanel('archive',this)">📚 Archive</button>
-          <button class="sub-btn" id="sub-btn-search"  onclick="showSubPanel('search',this)">🔍 Search Stories</button>
-          <button class="sub-btn" id="sub-btn-qa"      onclick="showSubPanel('qa',this)">⚖️ Legal Q&amp;A</button>
-          <button class="sub-btn" id="sub-btn-compare" onclick="showSubPanel('compare',this)">📊 Compare</button>
-        </div>
-      </div>
-
-      <!-- (0) My Thoughts -->
-      <div class="sub-panel active" id="sub-mine">
-        <div class="card">
-          <div class="card-head"><span class="card-title">내 생각 남기기</span></div>
-          <div class="card-body">
-            <div class="thought-compose">
-              <textarea id="thought-input" placeholder="의견이나 질문을 남겨보세요…" rows="3" maxlength="500"></textarea>
-              <div style="display:flex;justify-content:space-between;align-items:center">
-                <span class="hint" id="thought-auth-hint" style="padding:0;text-align:left;font-size:11px"></span>
-                <button class="btn-primary" id="thought-post-btn" onclick="postThought()" disabled>게시</button>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="thought-feed" id="thought-feed">
-          <div class="hint">불러오는 중…</div>
-        </div>
-        <div style="text-align:center">
-          <button class="btn-outline" id="thought-more-btn" style="display:none" onclick="loadMoreThoughts()">더 보기</button>
-        </div>
-      </div>
-
-      <!-- (a) Archive -->
-      <div class="sub-panel" id="sub-archive">
-        <div id="archive-cards">
-          <div class="hint">No saved briefings yet. Generate your first briefing on the Daily Briefing tab.</div>
+          <button class="sub-btn active" id="sub-btn-search"  onclick="showSubPanel('search',this)">🔍 <span data-i18n="personal.search_tab">Search Stories</span></button>
+          <button class="sub-btn" id="sub-btn-qa"      onclick="showSubPanel('qa',this)">⚖️ <span data-i18n="personal.qa_tab">Legal Q&amp;A</span></button>
+          <button class="sub-btn" id="sub-btn-compare" onclick="showSubPanel('compare',this)">📊 <span data-i18n="personal.compare_tab">Compare</span></button>
         </div>
       </div>
 
       <!-- (b) Search Stories -->
-      <div class="sub-panel" id="sub-search">
+      <div class="sub-panel active" id="sub-search">
         <div class="card">
-          <div class="card-head"><span class="card-title">Search Stories</span></div>
+          <div class="card-head"><span class="card-title" data-i18n="personal.search_tab">Search Stories</span></div>
           <div class="card-body">
-            <p style="font-family:Arial,sans-serif;font-size:13px;color:var(--ink3);margin-bottom:12px">Search legal news from your selected sources and federal court cases from CourtListener.</p>
+            <p style="font-family:Arial,sans-serif;font-size:13px;color:var(--ink3);margin-bottom:12px" data-i18n="personal.search_desc">Search legal news from your selected sources and federal court cases from CourtListener.</p>
             <div class="url-input-row">
-              <input id="search-input" type="text" placeholder="e.g. GDPR enforcement, patent infringement, SEC…" onkeydown="if(event.key==='Enter')searchStories()">
-              <button onclick="searchStories()">Search</button>
+              <input id="search-input" type="text" data-i18n-ph="personal.search_ph" placeholder="e.g. GDPR enforcement, patent infringement, SEC…" onkeydown="if(event.key==='Enter')searchStories()">
+              <button onclick="searchStories()" data-i18n="personal.search_btn">Search</button>
             </div>
             <div id="search-src-row" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;align-items:center"></div>
-            <div id="search-spin" style="display:none;margin-top:8px" class="hint"><span class="spinner dark"></span>&nbsp;Searching…</div>
+            <div id="search-spin" style="display:none;margin-top:8px" class="hint"><span class="spinner dark"></span>&nbsp;<span data-i18n="personal.searching">Searching…</span></div>
             <div id="search-results" class="result-list"></div>
           </div>
         </div>
@@ -406,89 +437,111 @@ body{font-family:Georgia,serif;background:var(--surface);color:var(--ink);min-he
       <div class="sub-panel" id="sub-qa">
         <div class="card">
           <div class="card-head">
-            <span class="card-title">Legal Q&amp;A</span>
+            <span class="card-title" data-i18n="personal.qa_tab">Legal Q&amp;A</span>
             <div class="qa-ctx-bar">
-              <span id="ctx-badge" class="badge">📰 No briefing loaded</span>
-              <button class="btn-ghost" style="font-size:11px;padding:4px 9px" onclick="showSubPanel('archive',document.getElementById('sub-btn-archive'))">Load from archive</button>
+              <span id="ctx-badge" class="badge">📰 <span data-i18n="personal.no_briefing">No briefing loaded</span></span>
+              <button class="btn-ghost" style="font-size:11px;padding:4px 9px" onclick="showPanel('brief',document.getElementById('nav-brief'));showBriefView('archive',document.getElementById('brief-view-archive-btn'))" data-i18n="personal.load_from_archive">Load from archive</button>
             </div>
           </div>
           <div class="card-body" style="padding:0">
             <div class="chat-area" id="chat-area">
               <div class="msg bot">
-                <div class="msg-bubble">Hello! I'm your legal research assistant. I can answer questions using your loaded briefing, your selected news sources, and CourtListener (free federal case law). Load a briefing from the Archive tab or just ask any legal question.</div>
-                <div class="msg-time">Now</div>
+                <div class="msg-bubble" data-i18n="personal.qa_welcome">Hello! I'm your legal research assistant. I can answer questions using your loaded briefing, your selected news sources, and CourtListener (free federal case law). Load a briefing from the Archive tab or just ask any legal question.</div>
+                <div class="msg-time" data-i18n="personal.now">Now</div>
               </div>
             </div>
             <div class="chat-input-row">
-              <textarea class="chat-input" id="chat-input" placeholder="Ask a legal question…" rows="1" onkeydown="chatKey(event)"></textarea>
-              <button class="send-btn" id="send-btn" onclick="sendMessage()">Send</button>
+              <textarea class="chat-input" id="chat-input" data-i18n-ph="personal.qa_ph" placeholder="Ask a legal question…" rows="1" onkeydown="chatKey(event)"></textarea>
+              <button class="send-btn" id="send-btn" onclick="sendMessage()" data-i18n="personal.send">Send</button>
             </div>
           </div>
         </div>
-        <div class="note">⚖️ <span>Each question searches your news sources and <strong>CourtListener</strong> for relevant context before answering. Results are AI-synthesized — verify with primary sources.</span></div>
+        <div class="note">⚖️ <span data-i18n="personal.qa_note">Each question searches your news sources and <strong>CourtListener</strong> for relevant context before answering. Results are AI-synthesized — verify with primary sources.</span></div>
       </div>
 
       <!-- (d) Compare Companies -->
       <div class="sub-panel" id="sub-compare">
         <div class="card">
           <div class="card-head">
-            <span class="card-title">📊 Competitive Legal Analysis</span>
-            <button class="btn-outline" id="compare-run-btn" onclick="compareCompanies()" style="display:none">↻ Refresh</button>
+            <span class="card-title">📊 <span data-i18n="personal.compare_title">Competitive Legal Analysis</span></span>
+            <button class="btn-outline" id="compare-run-btn" onclick="compareCompanies()" style="display:none">↻ <span data-i18n="personal.refresh">Refresh</span></button>
           </div>
           <div class="card-body">
-            <div id="compare-hint" style="font-family:Arial,sans-serif;font-size:13px;color:var(--ink3)">Add 2 or more companies in <strong>Sources &amp; Topics → Tracked Companies</strong> to generate a competitive legal analysis.</div>
-            <div id="compare-spin" style="display:none" class="hint"><span class="spinner dark"></span>&nbsp;Analyzing across SEC filings, court cases, and your news sources…</div>
+            <div id="compare-hint" style="font-family:Arial,sans-serif;font-size:13px;color:var(--ink3)" data-i18n="personal.compare_hint">Add 2 or more companies in <strong>Sources &amp; Topics → Tracked Companies</strong> to generate a competitive legal analysis.</div>
+            <div id="compare-spin" style="display:none" class="hint"><span class="spinner dark"></span>&nbsp;<span data-i18n="personal.compare_analyzing">Analyzing across SEC filings, court cases, and your news sources…</span></div>
             <div id="compare-out" style="display:none"></div>
           </div>
         </div>
-        <div class="note">📊 <span>Analysis draws from <strong>SEC EDGAR</strong> public filings, <strong>CourtListener</strong> federal cases, and your selected news sources. AI-synthesized — verify with primary sources.</span></div>
+        <div class="note">📊 <span data-i18n="personal.compare_note">Analysis draws from <strong>SEC EDGAR</strong> public filings, <strong>CourtListener</strong> federal cases, and your selected news sources. AI-synthesized — verify with primary sources.</span></div>
       </div>
 
+    </div>
+
+    <!-- ══ SHARING THOUGHTS ══ -->
+    <div class="panel" id="panel-sharing">
+      <div class="card">
+        <div class="card-head"><span class="card-title" data-i18n="sharing.title">Share a thought</span></div>
+        <div class="card-body">
+          <div class="thought-compose">
+            <textarea id="thought-input" data-i18n-ph="sharing.compose_ph" placeholder="Share an opinion or ask a question…" rows="3" maxlength="500"></textarea>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span class="hint" id="thought-auth-hint" style="padding:0;text-align:left;font-size:11px"></span>
+              <button class="btn-primary" id="thought-post-btn" onclick="postThought()" disabled data-i18n="sharing.post">Post</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="thought-feed" id="thought-feed">
+        <div class="hint" data-i18n="common.loading">Loading…</div>
+      </div>
+      <div style="text-align:center">
+        <button class="btn-outline" id="thought-more-btn" style="display:none" onclick="loadMoreThoughts()" data-i18n="sharing.load_more">Load more</button>
+      </div>
     </div>
 
     <!-- ══ SOURCES & TOPICS ══ -->
     <div class="panel" id="panel-settings">
 
       <div class="card">
-        <div class="card-head"><span class="card-title">Legal Topics</span></div>
+        <div class="card-head"><span class="card-title" data-i18n="settings.legal_topics">Legal Topics</span></div>
         <div class="card-body">
-          <p style="font-family:Arial,sans-serif;font-size:13px;color:var(--ink3);margin-bottom:12px">Toggle topics and add custom keywords. These shape your daily briefing.</p>
+          <p style="font-family:Arial,sans-serif;font-size:13px;color:var(--ink3);margin-bottom:12px" data-i18n="settings.legal_topics_desc">Toggle topics and add custom keywords. These shape your daily briefing.</p>
           <div class="topic-row">
-            <div class="topic-pill" data-topic="ip"   onclick="toggleTopic(this)">IP &amp; Technology</div>
-            <div class="topic-pill" data-topic="reg"  onclick="toggleTopic(this)">Regulatory &amp; Compliance</div>
-            <div class="topic-pill" data-topic="lit"  onclick="toggleTopic(this)">Litigation &amp; Courts</div>
-            <div class="topic-pill" data-topic="corp" onclick="toggleTopic(this)">Corporate &amp; M&amp;A</div>
+            <div class="topic-pill" data-topic="ip"   data-i18n="topic.ip"   onclick="toggleTopic(this)">IP &amp; Technology</div>
+            <div class="topic-pill" data-topic="reg"  data-i18n="topic.reg"  onclick="toggleTopic(this)">Regulatory &amp; Compliance</div>
+            <div class="topic-pill" data-topic="lit"  data-i18n="topic.lit"  onclick="toggleTopic(this)">Litigation &amp; Courts</div>
+            <div class="topic-pill" data-topic="corp" data-i18n="topic.corp" onclick="toggleTopic(this)">Corporate &amp; M&amp;A</div>
           </div>
           <div class="row-input">
-            <input type="text" id="kw-in" placeholder="Add keyword (e.g. antitrust, GDPR, SEC enforcement…)">
-            <button onclick="addKeyword()">+ Add</button>
+            <input type="text" id="kw-in" data-i18n-ph="settings.keyword_ph" placeholder="Add keyword (e.g. antitrust, GDPR, SEC enforcement…)">
+            <button onclick="addKeyword()" data-i18n="common.add_plus">+ Add</button>
           </div>
           <div class="chip-row" id="kw-chips"></div>
         </div>
       </div>
 
       <div class="card">
-        <div class="card-head"><span class="card-title">Business Topics</span></div>
+        <div class="card-head"><span class="card-title" data-i18n="settings.business_topics">Business Topics</span></div>
         <div class="card-body">
-          <p style="font-family:Arial,sans-serif;font-size:13px;color:var(--ink3);margin-bottom:12px">Select sectors and track companies. The briefing will surface legal opportunities and risks for each.</p>
-          <div class="section-lbl2">Business Sectors</div>
+          <p style="font-family:Arial,sans-serif;font-size:13px;color:var(--ink3);margin-bottom:12px" data-i18n="settings.business_topics_desc">Select sectors and track companies. The briefing will surface legal opportunities and risks for each.</p>
+          <div class="section-lbl2" data-i18n="settings.business_sectors">Business Sectors</div>
           <div class="topic-row">
-            <div class="topic-pill biz-pill" data-sector="technology"    onclick="toggleSector(this)">Technology &amp; AI</div>
-            <div class="topic-pill biz-pill" data-sector="finance"       onclick="toggleSector(this)">Finance &amp; Banking</div>
-            <div class="topic-pill biz-pill" data-sector="healthcare"    onclick="toggleSector(this)">Healthcare &amp; Pharma</div>
-            <div class="topic-pill biz-pill" data-sector="realestate"    onclick="toggleSector(this)">Real Estate</div>
-            <div class="topic-pill biz-pill" data-sector="energy"        onclick="toggleSector(this)">Energy &amp; Environment</div>
-            <div class="topic-pill biz-pill" data-sector="retail"        onclick="toggleSector(this)">Retail &amp; E-commerce</div>
-            <div class="topic-pill biz-pill" data-sector="media"         onclick="toggleSector(this)">Media &amp; Entertainment</div>
-            <div class="topic-pill biz-pill" data-sector="manufacturing" onclick="toggleSector(this)">Manufacturing</div>
-            <div class="topic-pill biz-pill" data-sector="startup"       onclick="toggleSector(this)">Startups &amp; VC</div>
+            <div class="topic-pill biz-pill" data-sector="technology"    data-i18n="sector.technology"    onclick="toggleSector(this)">Technology &amp; AI</div>
+            <div class="topic-pill biz-pill" data-sector="finance"       data-i18n="sector.finance"       onclick="toggleSector(this)">Finance &amp; Banking</div>
+            <div class="topic-pill biz-pill" data-sector="healthcare"    data-i18n="sector.healthcare"    onclick="toggleSector(this)">Healthcare &amp; Pharma</div>
+            <div class="topic-pill biz-pill" data-sector="realestate"    data-i18n="sector.realestate"    onclick="toggleSector(this)">Real Estate</div>
+            <div class="topic-pill biz-pill" data-sector="energy"        data-i18n="sector.energy"        onclick="toggleSector(this)">Energy &amp; Environment</div>
+            <div class="topic-pill biz-pill" data-sector="retail"        data-i18n="sector.retail"        onclick="toggleSector(this)">Retail &amp; E-commerce</div>
+            <div class="topic-pill biz-pill" data-sector="media"         data-i18n="sector.media"         onclick="toggleSector(this)">Media &amp; Entertainment</div>
+            <div class="topic-pill biz-pill" data-sector="manufacturing" data-i18n="sector.manufacturing" onclick="toggleSector(this)">Manufacturing</div>
+            <div class="topic-pill biz-pill" data-sector="startup"       data-i18n="sector.startup"       onclick="toggleSector(this)">Startups &amp; VC</div>
           </div>
           <div style="margin-top:16px">
-            <div class="section-lbl2">Tracked Companies</div>
-            <p style="font-family:Arial,sans-serif;font-size:12px;color:var(--ink3);margin-bottom:8px">The briefing pulls publicly available legal &amp; regulatory information for each company.</p>
+            <div class="section-lbl2" data-i18n="settings.tracked_companies">Tracked Companies</div>
+            <p style="font-family:Arial,sans-serif;font-size:12px;color:var(--ink3);margin-bottom:8px" data-i18n="settings.tracked_companies_desc">The briefing pulls publicly available legal &amp; regulatory information for each company.</p>
             <div class="row-input">
-              <input type="text" id="co-in" placeholder="Company name (e.g. Apple, JPMorgan, Tesla…)">
-              <button class="green" onclick="addCompany()">+ Track</button>
+              <input type="text" id="co-in" data-i18n-ph="settings.company_ph" placeholder="Company name (e.g. Apple, JPMorgan, Tesla…)">
+              <button class="green" onclick="addCompany()" data-i18n="common.track_plus">+ Track</button>
             </div>
             <div class="chip-row" id="co-chips"></div>
           </div>
@@ -496,12 +549,12 @@ body{font-family:Georgia,serif;background:var(--surface);color:var(--ink);min-he
       </div>
 
       <div class="card">
-        <div class="card-head"><span class="card-title">News Sources</span></div>
+        <div class="card-head"><span class="card-title" data-i18n="settings.news_sources">News Sources</span></div>
         <div class="card-body">
-          <p style="font-family:Arial,sans-serif;font-size:13px;color:var(--ink3);margin-bottom:12px">Add legal news websites. The briefing engine references these sources.</p>
+          <p style="font-family:Arial,sans-serif;font-size:13px;color:var(--ink3);margin-bottom:12px" data-i18n="settings.news_sources_desc">Add legal news websites. The briefing engine references these sources.</p>
           <div class="url-input-row">
             <input type="text" id="url-in" placeholder="https://law360.com …">
-            <button onclick="addUrl()">Add</button>
+            <button onclick="addUrl()" data-i18n="common.add">Add</button>
           </div>
           <div class="url-items" id="url-items">
             <div class="url-item"><span>law360.com</span><button class="url-del" onclick="removeUrl(this,'law360.com')">×</button></div>
@@ -511,22 +564,19 @@ body{font-family:Georgia,serif;background:var(--surface);color:var(--ink);min-he
       </div>
 
       <div class="card">
-        <div class="card-head"><span class="card-title">Daily Alarm</span></div>
+        <div class="card-head"><span class="card-title" data-i18n="settings.archive_schedule">Archive Schedule</span></div>
         <div class="card-body">
-          <p style="font-family:Arial,sans-serif;font-size:13px;color:var(--ink3);margin-bottom:14px">Auto-generate your Daily Briefing at a set time each day.</p>
-          <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
-            <input type="time" id="alarm-time" value="08:00" onchange="saveAlarm()" style="font-size:14px;padding:7px 10px;border:1px solid var(--rule);border-radius:var(--radius);color:var(--ink);background:var(--white);font-family:Arial,sans-serif">
-            <label style="display:flex;align-items:center;gap:8px;font-family:Arial,sans-serif;font-size:13px;cursor:pointer">
-              <input type="checkbox" id="alarm-toggle" onchange="saveAlarm()" style="width:16px;height:16px;cursor:pointer">
-              Enable alarm
-            </label>
-            <button class="btn-ghost" id="notif-btn" onclick="requestNotifPermission()">🔔 Allow notifications</button>
+          <p style="font-family:Arial,sans-serif;font-size:13px;color:var(--ink3);margin-bottom:14px" data-i18n="settings.archive_schedule_desc">Automatically generate and save a briefing at one or more times each day, using your current topics, sectors, and tracked companies above.</p>
+          <div id="alarm-times" style="display:flex;flex-direction:column;gap:8px"></div>
+          <div style="display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap">
+            <button class="btn-ghost" onclick="addAlarmTime()" data-i18n="settings.add_time">+ Add time</button>
+            <button class="btn-ghost" id="notif-btn" onclick="requestNotifPermission()">🔔 <span data-i18n="settings.allow_notif">Allow notifications</span></button>
           </div>
-          <div id="alarm-status" style="font-family:Arial,sans-serif;font-size:12px;color:var(--ink3);margin-top:10px">Alarm disabled</div>
+          <div id="alarm-status" style="font-family:Arial,sans-serif;font-size:12px;color:var(--ink3);margin-top:10px"></div>
         </div>
       </div>
 
-      <p style="font-family:Arial,sans-serif;font-size:12px;color:var(--ink3);text-align:center">Changes take effect on the next renewal.</p>
+      <p style="font-family:Arial,sans-serif;font-size:12px;color:var(--ink3);text-align:center" data-i18n="settings.footer_note">Changes take effect on the next renewal.</p>
     </div>
 
   </div>
@@ -536,14 +586,14 @@ body{font-family:Georgia,serif;background:var(--surface);color:var(--ink);min-he
 <div id="article-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeArticle()">
   <div class="modal-box">
     <div class="modal-head">
-      <div class="modal-title" id="modal-title">Loading…</div>
+      <div class="modal-title" id="modal-title" data-i18n="common.loading">Loading…</div>
       <div class="modal-actions">
-        <a id="modal-ext-link" href="#" target="_blank" rel="noopener" class="btn-outline" style="font-size:12px">Open original ↗</a>
+        <a id="modal-ext-link" href="#" target="_blank" rel="noopener" class="btn-outline" style="font-size:12px" data-i18n="common.open_original">Open original ↗</a>
         <button class="btn-ghost" onclick="closeArticle()">✕</button>
       </div>
     </div>
     <div class="modal-body" id="modal-body">
-      <div class="hint"><span class="spinner dark"></span>&nbsp;Fetching article…</div>
+      <div class="hint"><span class="spinner dark"></span>&nbsp;<span data-i18n="common.fetching_article">Fetching article…</span></div>
     </div>
   </div>
 </div>
@@ -562,8 +612,10 @@ const S = {
   context:   '',
   chatHist:  [],
   archive:   [],
-  articles:  []   // fetched news articles for current briefing [{topic,title,link,domain}]
+  articles:  [],  // fetched news articles for current briefing [{topic,title,link,domain}]
+  trendConfig: { topics: [], days: 7 }
 };
+window.S = S; // exposes S to the Firebase module script (const bindings aren't window properties)
 
 const TOPIC_META = {
   ip:   {label:'IP & Technology',  t:'ip'  },
@@ -632,35 +684,66 @@ try { const sk = localStorage.getItem('lexbrief_keywords'); if (sk) { S.keywords
 try { const sc = localStorage.getItem('lexbrief_companies'); if (sc) { S.companies = JSON.parse(sc); renderCoChips(); } } catch {}
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ALARM
+// ARCHIVE SCHEDULE (auto-generate a briefing at one or more times daily —
+// client-side best-effort, only fires while a browser tab is open at that
+// moment; replaces the old single-time Daily Alarm)
 // ─────────────────────────────────────────────────────────────────────────────
-const ALARM = { enabled: false, time: '08:00' };
+const ALARM = { times: ['08:00'] };
+window.ALARM = ALARM; // exposes ALARM to the Firebase module script, same reason as window.S
 
 function loadAlarm() {
-  try { const s = localStorage.getItem('lb_alarm'); if (s) Object.assign(ALARM, JSON.parse(s)); } catch(e) {}
-  document.getElementById('alarm-time').value     = ALARM.time;
-  document.getElementById('alarm-toggle').checked = ALARM.enabled;
-  updateAlarmStatus();
+  try {
+    const s = localStorage.getItem('lb_alarm');
+    if (s) {
+      const parsed = JSON.parse(s);
+      if (Array.isArray(parsed.times)) ALARM.times = parsed.times;
+    }
+  } catch(e) {}
+  renderAlarmTimes();
   if ('Notification' in window && Notification.permission === 'granted')
     document.getElementById('notif-btn').style.display = 'none';
 }
 
-function saveAlarm() {
-  ALARM.enabled = document.getElementById('alarm-toggle').checked;
-  ALARM.time    = document.getElementById('alarm-time').value;
-  try { localStorage.setItem('lb_alarm', JSON.stringify(ALARM)); } catch(e) {}
+function renderAlarmTimes() {
+  const el = document.getElementById('alarm-times');
+  el.innerHTML = ALARM.times.map((t, i) => `
+    <div style="display:flex;align-items:center;gap:10px">
+      <input type="time" value="${t}" onchange="updateAlarmTime(${i}, this.value)" style="font-size:14px;padding:7px 10px;border:1px solid var(--rule);border-radius:var(--radius);color:var(--ink);background:var(--white);font-family:Arial,sans-serif">
+      <button class="url-del" onclick="removeAlarmTime(${i})">×</button>
+    </div>`).join('');
   updateAlarmStatus();
+}
+
+function addAlarmTime() {
+  ALARM.times.push('08:00');
+  saveAlarm();
+}
+function updateAlarmTime(i, v) {
+  ALARM.times[i] = v;
+  saveAlarm();
+}
+function removeAlarmTime(i) {
+  ALARM.times.splice(i, 1);
+  saveAlarm();
+}
+
+function saveAlarm() {
+  try { localStorage.setItem('lb_alarm', JSON.stringify(ALARM)); } catch(e) {}
+  renderAlarmTimes();
+  syncUserProfile();
 }
 
 function updateAlarmStatus() {
   const el = document.getElementById('alarm-status');
-  if (ALARM.enabled && ALARM.time) {
-    const [h,m] = ALARM.time.split(':').map(Number);
-    const t = `${h%12||12}:${String(m).padStart(2,'0')} ${h>=12?'PM':'AM'}`;
-    el.textContent = `✓ Alarm set for ${t} daily`;
+  if (ALARM.times.length) {
+    const labels = ALARM.times.map(time => {
+      const [h,m] = time.split(':').map(Number);
+      return `${h%12||12}:${String(m).padStart(2,'0')} ${h>=12?'PM':'AM'}`;
+    });
+    el.textContent = t('settings.alarm_status_on', {times: labels.join(', ')});
     el.style.color = 'var(--accent)';
   } else {
-    el.textContent = 'Alarm disabled';
+    el.textContent = t('settings.alarm_status_off');
     el.style.color = 'var(--ink3)';
   }
 }
@@ -673,29 +756,42 @@ function requestNotifPermission() {
 }
 
 setInterval(() => {
-  if (!ALARM.enabled || !ALARM.time) return;
   const now = new Date();
-  const [h,m] = ALARM.time.split(':').map(Number);
-  if (now.getHours() !== h || now.getMinutes() !== m) return;
-  const key = `lb_alarm_fired_${now.toDateString()}_${ALARM.time}`;
-  if (localStorage.getItem(key)) return;
-  localStorage.setItem(key, '1');
-  showPanel('brief', null);
-  generateBriefing();
-  if ('Notification' in window && Notification.permission === 'granted')
-    new Notification('LexBrief', { body: 'Your daily legal briefing is ready.' });
+  ALARM.times.forEach(time => {
+    const [h,m] = time.split(':').map(Number);
+    if (now.getHours() !== h || now.getMinutes() !== m) return;
+    const key = `lb_alarm_fired_${now.toDateString()}_${time}`;
+    if (localStorage.getItem(key)) return;
+    localStorage.setItem(key, '1');
+    showPanel('brief', null);
+    generateBriefing();
+    if ('Notification' in window && Notification.permission === 'granted')
+      new Notification('LexBrief', { body: 'Your daily legal briefing is ready.' });
+  });
 }, 30000);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NAVIGATION  — simple, reliable tab switching
 // ─────────────────────────────────────────────────────────────────────────────
 function showPanel(name, btn) {
-  ['brief','thoughts','settings'].forEach(id => {
+  ['brief','thoughts','sharing','settings'].forEach(id => {
     document.getElementById('panel-' + id).classList.remove('active');
     document.getElementById('nav-' + id).classList.remove('active');
   });
   document.getElementById('panel-' + name).classList.add('active');
   (btn || document.getElementById('nav-' + name)).classList.add('active');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DAILY BRIEFING — Today / Archive toggle
+// ─────────────────────────────────────────────────────────────────────────────
+function showBriefView(view, btn) {
+  ['today','archive'].forEach(id => {
+    document.getElementById('briefview-' + id).classList.remove('active');
+    document.getElementById('brief-view-' + id + '-btn').classList.remove('active');
+  });
+  document.getElementById('briefview-' + view).classList.add('active');
+  (btn || document.getElementById('brief-view-' + view + '-btn')).classList.add('active');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -706,22 +802,26 @@ function toggleTopic(el) {
   S.topics[t] = !S.topics[t];
   el.classList.toggle('off', !S.topics[t]);
   try { localStorage.setItem('lexbrief_topics', JSON.stringify(S.topics)); } catch {}
+  syncUserProfile();
 }
 function toggleSector(el) {
   const s = el.dataset.sector;
   S.sectors[s] = !S.sectors[s];
   el.classList.toggle('off', !S.sectors[s]);
   try { localStorage.setItem('lexbrief_sectors', JSON.stringify(S.sectors)); } catch {}
+  syncUserProfile();
 }
 function addKeyword() {
   const inp = document.getElementById('kw-in'), v = inp.value.trim();
   if (!v || S.keywords.includes(v)) { inp.value=''; return; }
   S.keywords.push(v); renderKwChips(); inp.value='';
   try { localStorage.setItem('lexbrief_keywords', JSON.stringify(S.keywords)); } catch {}
+  syncUserProfile();
 }
 function removeKeyword(k) {
   S.keywords = S.keywords.filter(x=>x!==k); renderKwChips();
   try { localStorage.setItem('lexbrief_keywords', JSON.stringify(S.keywords)); } catch {}
+  syncUserProfile();
 }
 function renderKwChips() {
   document.getElementById('kw-chips').innerHTML =
@@ -731,8 +831,9 @@ function addCompany() {
   const inp = document.getElementById('co-in'), v = inp.value.trim();
   if (!v || S.companies.includes(v)) { inp.value=''; return; }
   S.companies.push(v); renderCoChips(); inp.value='';
+  syncUserProfile();
 }
-function removeCompany(c) { S.companies = S.companies.filter(x=>x!==c); renderCoChips(); }
+function removeCompany(c) { S.companies = S.companies.filter(x=>x!==c); renderCoChips(); syncUserProfile(); }
 function renderCoChips() {
   const chips = S.companies.map(c =>
     `<span class="chip company">🏢 ${c}<button class="chip-x" onclick="removeCompany('${esc(c)}')">×</button></span>`
@@ -752,10 +853,12 @@ function addUrl() {
   d.innerHTML=`<span>${v}</span><button class="url-del" onclick="removeUrl(this,'${esc(v)}')">×</button>`;
   document.getElementById('url-items').appendChild(d); inp.value='';
   try { localStorage.setItem('lexbrief_urls', JSON.stringify(S.urls)); } catch {}
+  syncUserProfile();
 }
 function removeUrl(btn, url) {
   S.urls=S.urls.filter(u=>u!==url); btn.closest('.url-item').remove();
   try { localStorage.setItem('lexbrief_urls', JSON.stringify(S.urls)); } catch {}
+  syncUserProfile();
 }
 
 document.getElementById('kw-in').addEventListener('keydown', e=>{ if(e.key==='Enter') addKeyword(); });
@@ -961,6 +1064,7 @@ Only include these topics: ${activeTopics.join(',')}.`;
     try { localStorage.setItem('lb_archive', JSON.stringify(S.archive)); } catch {}
     try { localStorage.setItem(todayKey(), JSON.stringify(entry)); } catch {}
     renderArchive();
+    saveArchiveEntryToCloud(entry); // no-op until a nickname is set (pre-gate auto-briefing)
 
     // Update UI
     out.style.display = 'block';
@@ -990,7 +1094,7 @@ Only include these topics: ${activeTopics.join(',')}.`;
 // RESEARCH HUB — SUB-NAVIGATION
 // ─────────────────────────────────────────────────────────────────────────────
 function showSubPanel(name, btn) {
-  ['mine','archive','search','qa','compare'].forEach(id => {
+  ['search','qa','compare'].forEach(id => {
     document.getElementById('sub-' + id).classList.remove('active');
     document.getElementById('sub-btn-' + id).classList.remove('active');
   });
@@ -1005,7 +1109,7 @@ function showSubPanel(name, btn) {
 function renderArchive() {
   const el = document.getElementById('archive-cards');
   if (!S.archive.length) {
-    el.innerHTML = '<div class="hint">No saved briefings yet. Generate your first briefing on the Daily Briefing tab.</div>';
+    el.innerHTML = `<div class="hint">${t('brief.no_saved')}</div>`;
     return;
   }
   el.innerHTML = S.archive.map((e, i) => `
@@ -1015,11 +1119,11 @@ function renderArchive() {
           <div class="arc-card-date">${e.date} · ${e.time}</div>
           <div class="arc-card-topics">${e.topics}</div>
         </div>
-        <span id="arc-tog-${i}" style="font-family:Arial,sans-serif;font-size:11px;color:var(--ink3);flex-shrink:0">▼ Expand</span>
+        <span id="arc-tog-${i}" style="font-family:Arial,sans-serif;font-size:11px;color:var(--ink3);flex-shrink:0">${t('common.expand')}</span>
       </div>
       <div class="arc-card-body" id="arc-body-${i}">${e.html}</div>
       <div class="arc-card-footer">
-        <button class="btn-outline" onclick="loadArchiveToQA(${i})">Use in Legal Q&amp;A →</button>
+        <button class="btn-outline" onclick="loadArchiveToQA(${i})">${t('personal.use_in_qa')}</button>
       </div>
     </div>`).join('');
 }
@@ -1028,12 +1132,131 @@ function toggleArcCard(idx) {
   const body = document.getElementById('arc-body-' + idx);
   const tog  = document.getElementById('arc-tog-' + idx);
   const open = body.classList.toggle('open');
-  tog.textContent = open ? '▲ Collapse' : '▼ Expand';
+  tog.textContent = open ? t('common.collapse') : t('common.expand');
+}
+
+function filterArchive(q) {
+  q = q.trim().toLowerCase();
+  document.querySelectorAll('#archive-cards .arc-card').forEach((card, i) => {
+    const e = S.archive[i];
+    if (!e) return;
+    const hay = `${e.date} ${e.topics} ${e.context || ''}`.toLowerCase();
+    card.style.display = (!q || hay.includes(q)) ? '' : 'none';
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TREND ANALYSIS
+// ─────────────────────────────────────────────────────────────────────────────
+function renderTrendTopicPills() {
+  // display label is translated, but S.trendConfig.topics always stores the
+  // canonical English label (matches the "[Label]" blocks generateBriefing()
+  // writes into context, regardless of UI language)
+  const entries = [
+    ...Object.entries(TOPIC_META).map(([k, m]) => ({ i18nKey: 'topic.' + k,  label: m.label })),
+    ...Object.entries(SECTOR_META).map(([k, label]) => ({ i18nKey: 'sector.' + k, label }))
+  ];
+  document.getElementById('trend-topic-pills').innerHTML = entries.map(({ i18nKey, label }) => {
+    const active = S.trendConfig.topics.includes(label);
+    return `<div class="topic-pill${active ? '' : ' off'}" onclick="toggleTrendTopic('${esc(label)}')">${t(i18nKey)}</div>`;
+  }).join('');
+  document.getElementById('trend-days').value = S.trendConfig.days;
+}
+
+function toggleTrendTopic(label) {
+  const i = S.trendConfig.topics.indexOf(label);
+  if (i === -1) S.trendConfig.topics.push(label); else S.trendConfig.topics.splice(i, 1);
+  renderTrendTopicPills();
+  syncUserProfile();
+}
+
+function setTrendDays(n) {
+  S.trendConfig.days = n;
+  document.getElementById('trend-days').value = n;
+  syncUserProfile();
+}
+
+function onTrendDaysInput(v) {
+  S.trendConfig.days = Math.max(1, parseInt(v, 10) || 7);
+  syncUserProfile();
+}
+
+async function runTrendAnalysis() {
+  const days   = S.trendConfig.days || 7;
+  const cutoff = Date.now() - days * 86400000;
+  const inRange = S.archive.filter(e => {
+    const ts = e.createdAt ? e.createdAt.toMillis() : e.id;
+    return typeof ts === 'number' && ts >= cutoff;
+  });
+
+  const out = document.getElementById('trend-result');
+  if (inRange.length < 2) {
+    out.innerHTML = `<div class="hint">${t('trend.not_enough')}</div>`;
+    return;
+  }
+
+  const selectedLabels = S.trendConfig.topics;
+  const blocks = inRange.flatMap(e => {
+    const ctxBlocks = (e.context || '').split('\n\n');
+    return selectedLabels.length
+      ? ctxBlocks.filter(b => selectedLabels.some(l => b.startsWith('[' + l + ']')))
+      : ctxBlocks;
+  });
+  if (!blocks.length) {
+    out.innerHTML = `<div class="hint">${t('trend.no_match')}</div>`;
+    return;
+  }
+
+  const btn = document.getElementById('trend-run-btn');
+  btn.disabled = true;
+  out.innerHTML = `<div class="hint"><span class="spinner dark"></span>&nbsp;${t('trend.analyzing')}</div>`;
+
+  try {
+    const system = `You are a legal trend analyst. Given these legal briefing excerpts from the last ${days} days, identify emerging patterns, recurring themes, and directional shifts over time${selectedLabels.length ? `, focused on: ${selectedLabels.join(', ')}` : ''}.
+Reply ONLY as valid JSON, no markdown fences:
+{"summary":"2-3 sentence overview","trends":[{"title":"...","direction":"rising|stable|declining","description":"1-2 sentences"}]}`;
+
+    const res = await fetch('/api/chat', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001', max_tokens: 1500, temperature: 0,
+        system, messages: [{ role: 'user', content: blocks.join('\n\n') }]
+      })
+    });
+    const text = await res.text();
+    if (!res.ok) throw new Error(`Server error ${res.status}`);
+    const apiData = JSON.parse(text);
+    if (apiData.error) throw new Error(apiData.error.message);
+    const raw   = apiData.content.map(b => b.text || '').join('');
+    const clean = raw.replace(/```json\n?|```/g, '').trim();
+    if (!clean) throw new Error('Empty AI response.');
+    const jsonStr = clean.slice(clean.indexOf('{'), clean.lastIndexOf('}') + 1);
+    const parsed  = JSON.parse(jsonStr);
+
+    const dirClass = d => d === 'rising' ? 'risk-high' : d === 'declining' ? 'risk-low' : 'risk-medium';
+    const dirArrow = d => d === 'rising' ? '▲' : d === 'declining' ? '▼' : '●';
+    out.innerHTML = `
+      <div class="biz-card">
+        <p style="font-family:Georgia,serif;font-size:14px;color:var(--ink2);margin-bottom:12px">${parsed.summary || ''}</p>
+        <div class="biz-items">
+          ${(parsed.trends || []).map(tr => `
+            <div class="biz-item opp">
+              <div class="biz-lbl"><span class="risk-badge ${dirClass(tr.direction)}">${dirArrow(tr.direction)} ${tr.direction || ''}</span> ${tr.title || ''}</div>
+              <p>${tr.description || ''}</p>
+            </div>`).join('')}
+        </div>
+      </div>`;
+  } catch (e) {
+    out.innerHTML = `<div class="hint">${t('trend.failed', {msg: e.message})}</div>`;
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 function loadArchiveToQA(idx) {
   const entry = S.archive[idx];
   if (!entry) return;
+  showPanel('thoughts', document.getElementById('nav-thoughts'));
   S.context  = entry.context || '';
   S.articles = entry.articles || [];
   S.chatHist = [];
@@ -1415,8 +1638,14 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeArticle
 function copy(t) { navigator.clipboard.writeText(t).catch(()=>{}); }
 function esc(s) { return (s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
 
-loadAlarm();
-startBriefing();
+// Deferred to DOMContentLoaded: these indirectly call t() (updateAlarmStatus),
+// which is defined in the module script below. Module scripts finish executing
+// before DOMContentLoaded fires, so t() is guaranteed to exist by then.
+document.addEventListener('DOMContentLoaded', () => {
+  loadAlarm();
+  renderTrendTopicPills();
+  startBriefing();
+});
 
 </script>
 
@@ -1426,11 +1655,12 @@ startBriefing();
 // ─────────────────────────────────────────────────────────────────────────────
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
 import {
-  getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, increment,
+  getFirestore, collection, addDoc, getDocs, getDoc, setDoc, doc, updateDoc, deleteDoc, increment,
   query, orderBy, limit, startAfter, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
 import {
-  getAuth, signInAnonymously, onAuthStateChanged
+  getAuth, signInAnonymously, onAuthStateChanged,
+  EmailAuthProvider, linkWithCredential, signInWithEmailAndPassword
 } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -1453,6 +1683,806 @@ let feedLoaded = false;
 let myUid      = null;   // set once signInAnonymously resolves — required to post/edit/delete
 const thoughtsCache = {};              // id -> raw thought data, for inline edit
 const commentsCache = {};              // `${thoughtId}:${commentId}` -> raw comment data, for inline edit
+let currentLang   = 'en';
+const LANG_KEY    = 'lexbrief_lang';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// I18N — fixed UI copy only (nav, buttons, labels, status/empty-state text,
+// alerts/confirms). AI-generated Daily Briefing content, Trend Analysis
+// results, and Sharing Thoughts posts/comments are never translated — see
+// spec_site_restructure_i18n.md section 6.
+// ─────────────────────────────────────────────────────────────────────────────
+const I18N = {
+  en: {
+    'gate.title': 'Enter a nickname to get started',
+    'gate.desc': "You'll need a nickname to share opinions and questions with friends. A new nickname registers a password on the spot; an existing nickname needs the same password to sign back in.",
+    'gate.nickname_ph': 'Nickname',
+    'gate.password_ph': 'Password (4+ characters)',
+    'gate.start_btn': 'Get started',
+    'gate.recent_title': 'Recent thoughts & questions',
+    'gate.recent_loading': 'Loading recent thoughts…',
+    'gate.recent_empty': "No thoughts yet.",
+    'gate.recent_error': "Couldn't load recent thoughts.",
+    'gate.signing_in': 'Signing in… please try again in a moment.',
+    'gate.wrong_password': 'Wrong password.',
+    'gate.signin_failed': 'Sign-in failed: {msg}',
+    'sharing.auth_failed': 'Sign-in failed. Please refresh in a moment.',
+    'header.tagline': 'Legal Intelligence · Team Edition',
+    'nav.brief': 'Daily Briefing',
+    'nav.personal': 'Personal Tool',
+    'nav.sharing': 'Sharing Thoughts',
+    'nav.settings': 'Sources & Topics',
+    'brief.today_tab': 'Today',
+    'brief.archive_tab': 'Archive',
+    'brief.title': 'Daily Briefing',
+    'brief.ready': 'Ready',
+    'brief.generating': 'Generating…',
+    'brief.listen': 'Listen',
+    'brief.renew': 'Renew',
+    'brief.try_again': 'Try again',
+    'brief.podcast': 'Podcast Summary',
+    'brief.no_saved': 'No saved briefings yet. Generate your first briefing on the Today tab.',
+    'archive.search_ph': 'Search archive by date, topic, or keyword…',
+    'trend.title': 'Trend Analysis',
+    'trend.desc': 'Analyze patterns across your saved briefings over a time period you choose. Leave all topics unselected to include everything.',
+    'trend.last7': 'Last 7 days',
+    'trend.last30': 'Last 1 month',
+    'trend.last90': 'Last 3 months',
+    'trend.days_label': 'days',
+    'trend.run': 'Run analysis',
+    'trend.not_enough': 'Not enough briefings in this period to analyze (need at least 2).',
+    'trend.no_match': 'No matching content for the selected topics in this period.',
+    'trend.analyzing': 'Analyzing…',
+    'trend.failed': 'Trend analysis failed: {msg}',
+    'personal.search_tab': 'Search Stories',
+    'personal.search_desc': 'Search legal news from your selected sources and federal court cases from CourtListener.',
+    'personal.search_ph': 'e.g. GDPR enforcement, patent infringement, SEC…',
+    'personal.search_btn': 'Search',
+    'personal.searching': 'Searching…',
+    'personal.qa_tab': 'Legal Q&A',
+    'personal.no_briefing': 'No briefing loaded',
+    'personal.load_from_archive': 'Load from archive',
+    'personal.qa_welcome': "Hello! I'm your legal research assistant. I can answer questions using your loaded briefing, your selected news sources, and CourtListener (free federal case law). Load a briefing from the Archive tab or just ask any legal question.",
+    'personal.now': 'Now',
+    'personal.qa_ph': 'Ask a legal question…',
+    'personal.send': 'Send',
+    'personal.qa_note': 'Each question searches your news sources and <strong>CourtListener</strong> for relevant context before answering. Results are AI-synthesized — verify with primary sources.',
+    'personal.compare_tab': 'Compare',
+    'personal.compare_title': 'Competitive Legal Analysis',
+    'personal.refresh': 'Refresh',
+    'personal.compare_hint': 'Add 2 or more companies in <strong>Sources & Topics → Tracked Companies</strong> to generate a competitive legal analysis.',
+    'personal.compare_analyzing': 'Analyzing across SEC filings, court cases, and your news sources…',
+    'personal.compare_note': 'Analysis draws from <strong>SEC EDGAR</strong> public filings, <strong>CourtListener</strong> federal cases, and your selected news sources. AI-synthesized — verify with primary sources.',
+    'sharing.title': 'Share a thought',
+    'sharing.compose_ph': 'Share an opinion or ask a question…',
+    'sharing.post': 'Post',
+    'sharing.load_more': 'Load more',
+    'sharing.no_thoughts': 'No thoughts yet. Be the first to share!',
+    'sharing.edited': '(edited)',
+    'sharing.comment_count': '💬 {n} comment{s}',
+    'sharing.confirm_delete': 'Delete this for good?',
+    'sharing.post_failed': 'Failed to post: {msg}',
+    'sharing.comment_failed': 'Failed to post comment: {msg}',
+    'sharing.edit_failed': 'Failed to save edit: {msg}',
+    'sharing.delete_failed': 'Failed to delete: {msg}',
+    'sharing.edit': 'Edit',
+    'sharing.delete': 'Delete',
+    'sharing.save': 'Save',
+    'sharing.cancel': 'Cancel',
+    'sharing.comment_ph': 'Add a comment…',
+    'sharing.comment_submit': 'Post',
+    'sharing.comments_load_failed': "Couldn't load comments.",
+    'sharing.load_failed': "Couldn't load thoughts.",
+    'common.loading': 'Loading…',
+    'common.add_plus': '+ Add',
+    'common.add': 'Add',
+    'common.track_plus': '+ Track',
+    'common.open_original': 'Open original ↗',
+    'common.fetching_article': 'Fetching article…',
+    'common.expand': '▼ Expand',
+    'common.collapse': '▲ Collapse',
+    'personal.use_in_qa': 'Use in Legal Q&A →',
+    'settings.legal_topics': 'Legal Topics',
+    'settings.legal_topics_desc': 'Toggle topics and add custom keywords. These shape your daily briefing.',
+    'settings.keyword_ph': 'Add keyword (e.g. antitrust, GDPR, SEC enforcement…)',
+    'settings.business_topics': 'Business Topics',
+    'settings.business_topics_desc': 'Select sectors and track companies. The briefing will surface legal opportunities and risks for each.',
+    'settings.business_sectors': 'Business Sectors',
+    'settings.tracked_companies': 'Tracked Companies',
+    'settings.tracked_companies_desc': 'The briefing pulls publicly available legal & regulatory information for each company.',
+    'settings.company_ph': 'Company name (e.g. Apple, JPMorgan, Tesla…)',
+    'settings.news_sources': 'News Sources',
+    'settings.news_sources_desc': 'Add legal news websites. The briefing engine references these sources.',
+    'settings.archive_schedule': 'Archive Schedule',
+    'settings.archive_schedule_desc': 'Automatically generate and save a briefing at one or more times each day, using your current topics, sectors, and tracked companies above.',
+    'settings.add_time': '+ Add time',
+    'settings.allow_notif': 'Allow notifications',
+    'settings.footer_note': 'Changes take effect on the next renewal.',
+    'settings.alarm_status_on': '✓ Auto-generates daily at {times}',
+    'settings.alarm_status_off': 'No scheduled times — add one above',
+    'topic.ip': 'IP & Technology',
+    'topic.reg': 'Regulatory & Compliance',
+    'topic.lit': 'Litigation & Courts',
+    'topic.corp': 'Corporate & M&A',
+    'sector.technology': 'Technology & AI',
+    'sector.finance': 'Finance & Banking',
+    'sector.healthcare': 'Healthcare & Pharma',
+    'sector.realestate': 'Real Estate',
+    'sector.energy': 'Energy & Environment',
+    'sector.retail': 'Retail & E-commerce',
+    'sector.media': 'Media & Entertainment',
+    'sector.manufacturing': 'Manufacturing',
+    'sector.startup': 'Startups & VC',
+    'time.just_now': 'just now',
+    'time.min_ago': '{n} min ago',
+    'time.hr_ago': '{n} hr ago',
+    'time.day_ago': '{n}d ago'
+  },
+  ko: {
+    'gate.title': '닉네임을 입력하고 시작하세요',
+    'gate.desc': '친구들과 의견·질문을 나누려면 먼저 닉네임이 필요해요. 처음 쓰는 닉네임이면 비밀번호가 그 자리에서 등록되고, 이미 쓰인 닉네임이면 같은 비밀번호로만 들어갈 수 있어요.',
+    'gate.nickname_ph': '닉네임',
+    'gate.password_ph': '비밀번호 (4자 이상)',
+    'gate.start_btn': '시작하기',
+    'gate.recent_title': '최근 의견 & 질문',
+    'gate.recent_loading': '최근 의견을 불러오는 중…',
+    'gate.recent_empty': '아직 등록된 의견이 없어요.',
+    'gate.recent_error': '최근 의견을 불러오지 못했어요.',
+    'gate.signing_in': '로그인 준비 중이에요. 잠시 후 다시 시도해주세요.',
+    'gate.wrong_password': '비밀번호가 틀렸어요.',
+    'gate.signin_failed': '로그인에 실패했어요: {msg}',
+    'sharing.auth_failed': '로그인에 실패했어요. 잠시 후 새로고침해 주세요.',
+    'header.tagline': '법률 인텔리전스 · 팀 에디션',
+    'nav.brief': '데일리 브리핑',
+    'nav.personal': '개인 도구',
+    'nav.sharing': '공유 의견',
+    'nav.settings': '소스 & 토픽',
+    'brief.today_tab': '오늘',
+    'brief.archive_tab': '아카이브',
+    'brief.title': '데일리 브리핑',
+    'brief.ready': '준비 완료',
+    'brief.generating': '생성 중…',
+    'brief.listen': '듣기',
+    'brief.renew': '갱신',
+    'brief.try_again': '다시 시도',
+    'brief.podcast': '팟캐스트 요약',
+    'brief.no_saved': '저장된 브리핑이 아직 없어요. Today 탭에서 첫 브리핑을 만들어보세요.',
+    'archive.search_ph': '날짜·토픽·키워드로 아카이브 검색…',
+    'trend.title': '트렌드 분석',
+    'trend.desc': '원하는 기간 동안 저장된 브리핑들의 패턴을 분석합니다. 토픽을 하나도 안 고르면 전체를 포함합니다.',
+    'trend.last7': '지난 7일',
+    'trend.last30': '지난 1개월',
+    'trend.last90': '지난 3개월',
+    'trend.days_label': '일',
+    'trend.run': '분석 실행',
+    'trend.not_enough': '이 기간에 분석할 브리핑이 충분하지 않아요(최소 2개 필요).',
+    'trend.no_match': '선택한 토픽에 해당하는 내용이 이 기간에 없어요.',
+    'trend.analyzing': '분석 중…',
+    'trend.failed': '트렌드 분석에 실패했어요: {msg}',
+    'personal.search_tab': '스토리 검색',
+    'personal.search_desc': '선택한 소스의 법률 뉴스와 CourtListener의 연방 판례를 검색합니다.',
+    'personal.search_ph': '예: GDPR 집행, 특허 침해, SEC…',
+    'personal.search_btn': '검색',
+    'personal.searching': '검색 중…',
+    'personal.qa_tab': '법률 Q&A',
+    'personal.no_briefing': '불러온 브리핑 없음',
+    'personal.load_from_archive': '아카이브에서 불러오기',
+    'personal.qa_welcome': '안녕하세요! 저는 법률 리서치 어시스턴트입니다. 불러온 브리핑, 선택한 뉴스 소스, CourtListener(무료 연방 판례)를 활용해 질문에 답할 수 있어요. Archive 탭에서 브리핑을 불러오거나 아무 법률 질문이나 해보세요.',
+    'personal.now': '방금',
+    'personal.qa_ph': '법률 질문을 입력하세요…',
+    'personal.send': '전송',
+    'personal.qa_note': '질문마다 뉴스 소스와 <strong>CourtListener</strong>에서 관련 맥락을 찾아 답합니다. 결과는 AI가 종합한 것이니 원문으로 다시 확인하세요.',
+    'personal.compare_tab': '비교',
+    'personal.compare_title': '경쟁사 법률 분석',
+    'personal.refresh': '새로고침',
+    'personal.compare_hint': 'Sources & Topics → Tracked Companies에서 2개 이상의 회사를 추가하면 경쟁사 법률 분석이 생성됩니다.',
+    'personal.compare_analyzing': 'SEC 공시, 판례, 뉴스 소스를 분석하는 중…',
+    'personal.compare_note': '이 분석은 <strong>SEC EDGAR</strong> 공개 공시, <strong>CourtListener</strong> 연방 판례, 선택한 뉴스 소스를 기반으로 합니다. AI가 종합한 결과이니 원문으로 다시 확인하세요.',
+    'sharing.title': '의견 남기기',
+    'sharing.compose_ph': '의견이나 질문을 남겨보세요…',
+    'sharing.post': '게시',
+    'sharing.load_more': '더 보기',
+    'sharing.no_thoughts': '아직 등록된 의견이 없어요. 첫 의견을 남겨보세요!',
+    'sharing.edited': '(수정됨)',
+    'sharing.comment_count': '💬 댓글 {n}개',
+    'sharing.confirm_delete': '정말 삭제할까요?',
+    'sharing.post_failed': '게시에 실패했어요: {msg}',
+    'sharing.comment_failed': '댓글 등록에 실패했어요: {msg}',
+    'sharing.edit_failed': '수정에 실패했어요: {msg}',
+    'sharing.delete_failed': '삭제에 실패했어요: {msg}',
+    'sharing.edit': '수정',
+    'sharing.delete': '삭제',
+    'sharing.save': '저장',
+    'sharing.cancel': '취소',
+    'sharing.comment_ph': '댓글 남기기…',
+    'sharing.comment_submit': '등록',
+    'sharing.comments_load_failed': '댓글을 불러오지 못했어요.',
+    'sharing.load_failed': '의견을 불러오지 못했어요.',
+    'common.loading': '불러오는 중…',
+    'common.add_plus': '+ 추가',
+    'common.add': '추가',
+    'common.track_plus': '+ 추적',
+    'common.open_original': '원문 열기 ↗',
+    'common.fetching_article': '기사를 불러오는 중…',
+    'common.expand': '▼ 펼치기',
+    'common.collapse': '▲ 접기',
+    'personal.use_in_qa': 'Legal Q&A에서 사용 →',
+    'settings.legal_topics': '법률 토픽',
+    'settings.legal_topics_desc': '토픽을 켜고 끄거나 키워드를 추가하세요. 데일리 브리핑에 반영됩니다.',
+    'settings.keyword_ph': '키워드 추가 (예: 반독점, GDPR, SEC 집행…)',
+    'settings.business_topics': '비즈니스 토픽',
+    'settings.business_topics_desc': '업종을 선택하고 회사를 추적하세요. 브리핑에서 각 회사의 법률 기회와 리스크를 보여줍니다.',
+    'settings.business_sectors': '업종',
+    'settings.tracked_companies': '추적 중인 회사',
+    'settings.tracked_companies_desc': '브리핑이 각 회사의 공개된 법률·규제 정보를 가져옵니다.',
+    'settings.company_ph': '회사명 (예: Apple, JPMorgan, Tesla…)',
+    'settings.news_sources': '뉴스 소스',
+    'settings.news_sources_desc': '법률 뉴스 사이트를 추가하세요. 브리핑 엔진이 이 소스들을 참고합니다.',
+    'settings.archive_schedule': '아카이브 예약',
+    'settings.archive_schedule_desc': '위에서 설정한 토픽·업종·추적 회사를 기준으로, 하루 중 지정한 시각마다 브리핑을 자동으로 생성해 저장합니다.',
+    'settings.add_time': '+ 시간 추가',
+    'settings.allow_notif': '알림 허용',
+    'settings.footer_note': '변경 사항은 다음 갱신부터 적용됩니다.',
+    'settings.alarm_status_on': '✓ 매일 {times}에 자동 생성',
+    'settings.alarm_status_off': '예약된 시각 없음 — 위에서 추가해 주세요',
+    'topic.ip': 'IP & 기술',
+    'topic.reg': '규제 & 컴플라이언스',
+    'topic.lit': '소송 & 법원',
+    'topic.corp': '기업 & M&A',
+    'sector.technology': '기술 & AI',
+    'sector.finance': '금융 & 은행',
+    'sector.healthcare': '헬스케어 & 제약',
+    'sector.realestate': '부동산',
+    'sector.energy': '에너지 & 환경',
+    'sector.retail': '리테일 & 이커머스',
+    'sector.media': '미디어 & 엔터테인먼트',
+    'sector.manufacturing': '제조업',
+    'sector.startup': '스타트업 & VC',
+    'time.just_now': '방금 전',
+    'time.min_ago': '{n}분 전',
+    'time.hr_ago': '{n}시간 전',
+    'time.day_ago': '{n}일 전'
+  },
+  es: {
+    'gate.title': 'Ingresa un apodo para comenzar',
+    'gate.desc': 'Necesitas un apodo para compartir opiniones y preguntas con amigos. Un apodo nuevo registra una contraseña al instante; un apodo existente requiere la misma contraseña para volver a entrar.',
+    'gate.nickname_ph': 'Apodo',
+    'gate.password_ph': 'Contraseña (4+ caracteres)',
+    'gate.start_btn': 'Comenzar',
+    'gate.recent_title': 'Opiniones y preguntas recientes',
+    'gate.recent_loading': 'Cargando opiniones recientes…',
+    'gate.recent_empty': 'Aún no hay opiniones.',
+    'gate.recent_error': 'No se pudieron cargar las opiniones recientes.',
+    'gate.signing_in': 'Iniciando sesión… inténtalo de nuevo en un momento.',
+    'gate.wrong_password': 'Contraseña incorrecta.',
+    'gate.signin_failed': 'Error al iniciar sesión: {msg}',
+    'sharing.auth_failed': 'Error al iniciar sesión. Actualiza en un momento.',
+    'header.tagline': 'Inteligencia Legal · Edición de Equipo',
+    'nav.brief': 'Resumen Diario',
+    'nav.personal': 'Herramienta Personal',
+    'nav.sharing': 'Opiniones Compartidas',
+    'nav.settings': 'Fuentes y Temas',
+    'brief.today_tab': 'Hoy',
+    'brief.archive_tab': 'Archivo',
+    'brief.title': 'Resumen Diario',
+    'brief.ready': 'Listo',
+    'brief.generating': 'Generando…',
+    'brief.listen': 'Escuchar',
+    'brief.renew': 'Renovar',
+    'brief.try_again': 'Reintentar',
+    'brief.podcast': 'Resumen en Podcast',
+    'brief.no_saved': 'Aún no hay resúmenes guardados. Genera tu primer resumen en la pestaña Hoy.',
+    'archive.search_ph': 'Buscar en el archivo por fecha, tema o palabra clave…',
+    'trend.title': 'Análisis de Tendencias',
+    'trend.desc': 'Analiza patrones en tus resúmenes guardados durante un período que elijas. Deja todos los temas sin seleccionar para incluirlos todos.',
+    'trend.last7': 'Últimos 7 días',
+    'trend.last30': 'Último mes',
+    'trend.last90': 'Últimos 3 meses',
+    'trend.days_label': 'días',
+    'trend.run': 'Ejecutar análisis',
+    'trend.not_enough': 'No hay suficientes resúmenes en este período para analizar (se necesitan al menos 2).',
+    'trend.no_match': 'No hay contenido coincidente para los temas seleccionados en este período.',
+    'trend.analyzing': 'Analizando…',
+    'trend.failed': 'Error en el análisis de tendencias: {msg}',
+    'personal.search_tab': 'Buscar Noticias',
+    'personal.search_desc': 'Busca noticias legales de tus fuentes seleccionadas y casos judiciales federales en CourtListener.',
+    'personal.search_ph': 'ej. cumplimiento de GDPR, infracción de patentes, SEC…',
+    'personal.search_btn': 'Buscar',
+    'personal.searching': 'Buscando…',
+    'personal.qa_tab': 'Preguntas Legales',
+    'personal.no_briefing': 'Ningún resumen cargado',
+    'personal.load_from_archive': 'Cargar desde el archivo',
+    'personal.qa_welcome': '¡Hola! Soy tu asistente de investigación legal. Puedo responder preguntas usando tu resumen cargado, tus fuentes de noticias seleccionadas y CourtListener (jurisprudencia federal gratuita). Carga un resumen desde la pestaña Archivo o simplemente haz cualquier pregunta legal.',
+    'personal.now': 'Ahora',
+    'personal.qa_ph': 'Haz una pregunta legal…',
+    'personal.send': 'Enviar',
+    'personal.qa_note': 'Cada pregunta busca en tus fuentes de noticias y en <strong>CourtListener</strong> el contexto relevante antes de responder. Los resultados son generados por IA — verifica con fuentes primarias.',
+    'personal.compare_tab': 'Comparar',
+    'personal.compare_title': 'Análisis Legal Competitivo',
+    'personal.refresh': 'Actualizar',
+    'personal.compare_hint': 'Agrega 2 o más empresas en <strong>Fuentes y Temas → Empresas Seguidas</strong> para generar un análisis legal competitivo.',
+    'personal.compare_analyzing': 'Analizando presentaciones de la SEC, casos judiciales y tus fuentes de noticias…',
+    'personal.compare_note': 'El análisis se basa en presentaciones públicas de <strong>SEC EDGAR</strong>, casos federales de <strong>CourtListener</strong> y tus fuentes de noticias seleccionadas. Generado por IA — verifica con fuentes primarias.',
+    'sharing.title': 'Comparte una opinión',
+    'sharing.compose_ph': 'Comparte una opinión o haz una pregunta…',
+    'sharing.post': 'Publicar',
+    'sharing.load_more': 'Cargar más',
+    'sharing.no_thoughts': 'Aún no hay opiniones. ¡Sé el primero en compartir!',
+    'sharing.edited': '(editado)',
+    'sharing.comment_count': '💬 {n} comentario{s}',
+    'sharing.confirm_delete': '¿Eliminar esto de forma permanente?',
+    'sharing.post_failed': 'Error al publicar: {msg}',
+    'sharing.comment_failed': 'Error al publicar el comentario: {msg}',
+    'sharing.edit_failed': 'Error al guardar la edición: {msg}',
+    'sharing.delete_failed': 'Error al eliminar: {msg}',
+    'sharing.edit': 'Editar',
+    'sharing.delete': 'Eliminar',
+    'sharing.save': 'Guardar',
+    'sharing.cancel': 'Cancelar',
+    'sharing.comment_ph': 'Agrega un comentario…',
+    'sharing.comment_submit': 'Publicar',
+    'sharing.comments_load_failed': 'No se pudieron cargar los comentarios.',
+    'sharing.load_failed': 'No se pudieron cargar las opiniones.',
+    'common.loading': 'Cargando…',
+    'common.add_plus': '+ Agregar',
+    'common.add': 'Agregar',
+    'common.track_plus': '+ Seguir',
+    'common.open_original': 'Abrir original ↗',
+    'common.fetching_article': 'Obteniendo artículo…',
+    'common.expand': '▼ Expandir',
+    'common.collapse': '▲ Contraer',
+    'personal.use_in_qa': 'Usar en Preguntas Legales →',
+    'settings.legal_topics': 'Temas Legales',
+    'settings.legal_topics_desc': 'Activa temas y agrega palabras clave personalizadas. Estos definen tu resumen diario.',
+    'settings.keyword_ph': 'Agregar palabra clave (ej. antimonopolio, GDPR, aplicación de la SEC…)',
+    'settings.business_topics': 'Temas de Negocio',
+    'settings.business_topics_desc': 'Selecciona sectores y sigue empresas. El resumen mostrará oportunidades y riesgos legales para cada una.',
+    'settings.business_sectors': 'Sectores de Negocio',
+    'settings.tracked_companies': 'Empresas Seguidas',
+    'settings.tracked_companies_desc': 'El resumen obtiene información legal y regulatoria disponible públicamente para cada empresa.',
+    'settings.company_ph': 'Nombre de empresa (ej. Apple, JPMorgan, Tesla…)',
+    'settings.news_sources': 'Fuentes de Noticias',
+    'settings.news_sources_desc': 'Agrega sitios de noticias legales. El motor de resúmenes hace referencia a estas fuentes.',
+    'settings.archive_schedule': 'Programación del Archivo',
+    'settings.archive_schedule_desc': 'Genera y guarda automáticamente un resumen a una o más horas cada día, usando tus temas, sectores y empresas seguidas actuales.',
+    'settings.add_time': '+ Agregar hora',
+    'settings.allow_notif': 'Permitir notificaciones',
+    'settings.footer_note': 'Los cambios se aplican en la próxima renovación.',
+    'settings.alarm_status_on': '✓ Se genera automáticamente cada día a las {times}',
+    'settings.alarm_status_off': 'Sin horarios programados — agrega uno arriba',
+    'topic.ip': 'PI y Tecnología',
+    'topic.reg': 'Regulación y Cumplimiento',
+    'topic.lit': 'Litigios y Tribunales',
+    'topic.corp': 'Corporativo y F&A',
+    'sector.technology': 'Tecnología e IA',
+    'sector.finance': 'Finanzas y Banca',
+    'sector.healthcare': 'Salud y Farmacéutica',
+    'sector.realestate': 'Bienes Raíces',
+    'sector.energy': 'Energía y Medio Ambiente',
+    'sector.retail': 'Retail y Comercio Electrónico',
+    'sector.media': 'Medios y Entretenimiento',
+    'sector.manufacturing': 'Manufactura',
+    'sector.startup': 'Startups y Capital de Riesgo',
+    'time.just_now': 'justo ahora',
+    'time.min_ago': 'hace {n} min',
+    'time.hr_ago': 'hace {n} h',
+    'time.day_ago': 'hace {n}d'
+  },
+  fr: {
+    'gate.title': 'Entrez un pseudo pour commencer',
+    'gate.desc': "Vous avez besoin d'un pseudo pour partager des avis et des questions avec vos amis. Un nouveau pseudo enregistre un mot de passe sur-le-champ ; un pseudo existant nécessite le même mot de passe pour se reconnecter.",
+    'gate.nickname_ph': 'Pseudo',
+    'gate.password_ph': 'Mot de passe (4+ caractères)',
+    'gate.start_btn': 'Commencer',
+    'gate.recent_title': 'Avis et questions récents',
+    'gate.recent_loading': 'Chargement des avis récents…',
+    'gate.recent_empty': "Aucun avis pour l'instant.",
+    'gate.recent_error': 'Impossible de charger les avis récents.',
+    'gate.signing_in': 'Connexion en cours… réessayez dans un instant.',
+    'gate.wrong_password': 'Mot de passe incorrect.',
+    'gate.signin_failed': 'Échec de la connexion : {msg}',
+    'sharing.auth_failed': 'Échec de la connexion. Actualisez dans un instant.',
+    'header.tagline': 'Intelligence Juridique · Édition Équipe',
+    'nav.brief': 'Résumé Quotidien',
+    'nav.personal': 'Outil Personnel',
+    'nav.sharing': 'Avis Partagés',
+    'nav.settings': 'Sources et Sujets',
+    'brief.today_tab': "Aujourd'hui",
+    'brief.archive_tab': 'Archives',
+    'brief.title': 'Résumé Quotidien',
+    'brief.ready': 'Prêt',
+    'brief.generating': 'Génération…',
+    'brief.listen': 'Écouter',
+    'brief.renew': 'Actualiser',
+    'brief.try_again': 'Réessayer',
+    'brief.podcast': 'Résumé Podcast',
+    'brief.no_saved': "Aucun résumé enregistré pour l'instant. Générez votre premier résumé dans l'onglet Aujourd'hui.",
+    'archive.search_ph': 'Rechercher dans les archives par date, sujet ou mot-clé…',
+    'trend.title': 'Analyse de Tendances',
+    'trend.desc': 'Analysez les tendances de vos résumés enregistrés sur une période de votre choix. Ne sélectionnez aucun sujet pour tout inclure.',
+    'trend.last7': '7 derniers jours',
+    'trend.last30': 'Dernier mois',
+    'trend.last90': '3 derniers mois',
+    'trend.days_label': 'jours',
+    'trend.run': "Lancer l'analyse",
+    'trend.not_enough': "Pas assez de résumés sur cette période pour analyser (2 minimum requis).",
+    'trend.no_match': 'Aucun contenu correspondant aux sujets sélectionnés sur cette période.',
+    'trend.analyzing': 'Analyse en cours…',
+    'trend.failed': "Échec de l'analyse de tendances : {msg}",
+    'personal.search_tab': 'Rechercher des Articles',
+    'personal.search_desc': 'Recherchez des actualités juridiques dans vos sources sélectionnées et des affaires fédérales sur CourtListener.',
+    'personal.search_ph': 'ex. application du RGPD, contrefaçon de brevet, SEC…',
+    'personal.search_btn': 'Rechercher',
+    'personal.searching': 'Recherche en cours…',
+    'personal.qa_tab': 'Questions Juridiques',
+    'personal.no_briefing': 'Aucun résumé chargé',
+    'personal.load_from_archive': 'Charger depuis les archives',
+    'personal.qa_welcome': "Bonjour ! Je suis votre assistant de recherche juridique. Je peux répondre à des questions en utilisant votre résumé chargé, vos sources d'actualités sélectionnées et CourtListener (jurisprudence fédérale gratuite). Chargez un résumé depuis l'onglet Archives ou posez simplement une question juridique.",
+    'personal.now': 'Maintenant',
+    'personal.qa_ph': 'Posez une question juridique…',
+    'personal.send': 'Envoyer',
+    'personal.qa_note': "Chaque question recherche dans vos sources d'actualités et sur <strong>CourtListener</strong> le contexte pertinent avant de répondre. Les résultats sont synthétisés par IA — vérifiez avec des sources primaires.",
+    'personal.compare_tab': 'Comparer',
+    'personal.compare_title': 'Analyse Juridique Concurrentielle',
+    'personal.refresh': 'Actualiser',
+    'personal.compare_hint': 'Ajoutez 2 entreprises ou plus dans <strong>Sources et Sujets → Entreprises Suivies</strong> pour générer une analyse juridique concurrentielle.',
+    'personal.compare_analyzing': 'Analyse des dépôts SEC, des affaires judiciaires et de vos sources d\'actualités…',
+    'personal.compare_note': "L'analyse s'appuie sur les dépôts publics <strong>SEC EDGAR</strong>, les affaires fédérales <strong>CourtListener</strong> et vos sources d'actualités sélectionnées. Synthétisé par IA — vérifiez avec des sources primaires.",
+    'sharing.title': 'Partagez un avis',
+    'sharing.compose_ph': 'Partagez un avis ou posez une question…',
+    'sharing.post': 'Publier',
+    'sharing.load_more': 'Charger plus',
+    'sharing.no_thoughts': "Aucun avis pour l'instant. Soyez le premier à partager !",
+    'sharing.edited': '(modifié)',
+    'sharing.comment_count': '💬 {n} commentaire{s}',
+    'sharing.confirm_delete': 'Supprimer définitivement ?',
+    'sharing.post_failed': 'Échec de la publication : {msg}',
+    'sharing.comment_failed': 'Échec de la publication du commentaire : {msg}',
+    'sharing.edit_failed': "Échec de l'enregistrement : {msg}",
+    'sharing.delete_failed': 'Échec de la suppression : {msg}',
+    'sharing.edit': 'Modifier',
+    'sharing.delete': 'Supprimer',
+    'sharing.save': 'Enregistrer',
+    'sharing.cancel': 'Annuler',
+    'sharing.comment_ph': 'Ajouter un commentaire…',
+    'sharing.comment_submit': 'Publier',
+    'sharing.comments_load_failed': 'Impossible de charger les commentaires.',
+    'sharing.load_failed': 'Impossible de charger les avis.',
+    'common.loading': 'Chargement…',
+    'common.add_plus': '+ Ajouter',
+    'common.add': 'Ajouter',
+    'common.track_plus': '+ Suivre',
+    'common.open_original': "Voir l'original ↗",
+    'common.fetching_article': "Récupération de l'article…",
+    'common.expand': '▼ Développer',
+    'common.collapse': '▲ Réduire',
+    'personal.use_in_qa': 'Utiliser dans Questions Juridiques →',
+    'settings.legal_topics': 'Sujets Juridiques',
+    'settings.legal_topics_desc': 'Activez des sujets et ajoutez des mots-clés personnalisés. Ils façonnent votre résumé quotidien.',
+    'settings.keyword_ph': 'Ajouter un mot-clé (ex. antitrust, RGPD, application SEC…)',
+    'settings.business_topics': 'Sujets Business',
+    'settings.business_topics_desc': 'Sélectionnez des secteurs et suivez des entreprises. Le résumé fera ressortir les opportunités et risques juridiques de chacune.',
+    'settings.business_sectors': 'Secteurs d\'Activité',
+    'settings.tracked_companies': 'Entreprises Suivies',
+    'settings.tracked_companies_desc': 'Le résumé récupère les informations juridiques et réglementaires publiques de chaque entreprise.',
+    'settings.company_ph': "Nom d'entreprise (ex. Apple, JPMorgan, Tesla…)",
+    'settings.news_sources': "Sources d'Actualités",
+    'settings.news_sources_desc': "Ajoutez des sites d'actualités juridiques. Le moteur de résumé s'appuie sur ces sources.",
+    'settings.archive_schedule': 'Planification des Archives',
+    'settings.archive_schedule_desc': "Génère et enregistre automatiquement un résumé à une ou plusieurs heures chaque jour, en utilisant vos sujets, secteurs et entreprises suivies actuels.",
+    'settings.add_time': '+ Ajouter une heure',
+    'settings.allow_notif': 'Autoriser les notifications',
+    'settings.footer_note': 'Les modifications prennent effet au prochain renouvellement.',
+    'settings.alarm_status_on': '✓ Génération automatique quotidienne à {times}',
+    'settings.alarm_status_off': 'Aucun horaire programmé — ajoutez-en un ci-dessus',
+    'topic.ip': 'PI et Technologie',
+    'topic.reg': 'Réglementation et Conformité',
+    'topic.lit': 'Contentieux et Tribunaux',
+    'topic.corp': 'Corporate et F&A',
+    'sector.technology': 'Technologie et IA',
+    'sector.finance': 'Finance et Banque',
+    'sector.healthcare': 'Santé et Pharma',
+    'sector.realestate': 'Immobilier',
+    'sector.energy': 'Énergie et Environnement',
+    'sector.retail': 'Commerce et E-commerce',
+    'sector.media': 'Médias et Divertissement',
+    'sector.manufacturing': 'Industrie',
+    'sector.startup': 'Startups et Capital-risque',
+    'time.just_now': "à l'instant",
+    'time.min_ago': 'il y a {n} min',
+    'time.hr_ago': 'il y a {n} h',
+    'time.day_ago': 'il y a {n} j'
+  },
+  zh: {
+    'gate.title': '输入昵称开始使用',
+    'gate.desc': '与朋友分享观点和问题需要一个昵称。新昵称会当场注册密码；已使用的昵称需要相同密码才能再次登录。',
+    'gate.nickname_ph': '昵称',
+    'gate.password_ph': '密码(4位以上)',
+    'gate.start_btn': '开始使用',
+    'gate.recent_title': '最近的观点和问题',
+    'gate.recent_loading': '正在加载最近的观点…',
+    'gate.recent_empty': '还没有任何观点。',
+    'gate.recent_error': '无法加载最近的观点。',
+    'gate.signing_in': '正在登录…请稍后再试。',
+    'gate.wrong_password': '密码错误。',
+    'gate.signin_failed': '登录失败：{msg}',
+    'sharing.auth_failed': '登录失败。请稍后刷新重试。',
+    'header.tagline': '法律情报 · 团队版',
+    'nav.brief': '每日简报',
+    'nav.personal': '个人工具',
+    'nav.sharing': '分享观点',
+    'nav.settings': '来源与主题',
+    'brief.today_tab': '今日',
+    'brief.archive_tab': '归档',
+    'brief.title': '每日简报',
+    'brief.ready': '已就绪',
+    'brief.generating': '生成中…',
+    'brief.listen': '收听',
+    'brief.renew': '刷新',
+    'brief.try_again': '重试',
+    'brief.podcast': '播客摘要',
+    'brief.no_saved': '还没有保存的简报。请在"今日"标签生成您的第一份简报。',
+    'archive.search_ph': '按日期、主题或关键词搜索归档…',
+    'trend.title': '趋势分析',
+    'trend.desc': '分析您所选时间段内保存的简报中的模式。不选任何主题即包含全部内容。',
+    'trend.last7': '最近7天',
+    'trend.last30': '最近1个月',
+    'trend.last90': '最近3个月',
+    'trend.days_label': '天',
+    'trend.run': '运行分析',
+    'trend.not_enough': '此时间段内的简报不足以分析(至少需要2份)。',
+    'trend.no_match': '此时间段内没有与所选主题匹配的内容。',
+    'trend.analyzing': '分析中…',
+    'trend.failed': '趋势分析失败：{msg}',
+    'personal.search_tab': '搜索报道',
+    'personal.search_desc': '在您选择的来源中搜索法律新闻，并在CourtListener中搜索联邦法院案例。',
+    'personal.search_ph': '例如：GDPR执法、专利侵权、SEC…',
+    'personal.search_btn': '搜索',
+    'personal.searching': '搜索中…',
+    'personal.qa_tab': '法律问答',
+    'personal.no_briefing': '未加载简报',
+    'personal.load_from_archive': '从归档加载',
+    'personal.qa_welcome': '您好！我是您的法律研究助手。我可以利用您加载的简报、所选新闻来源以及CourtListener(免费联邦判例)来回答问题。请从归档标签加载简报，或直接提出任何法律问题。',
+    'personal.now': '刚刚',
+    'personal.qa_ph': '输入法律问题…',
+    'personal.send': '发送',
+    'personal.qa_note': '每个问题在回答前都会在您的新闻来源和<strong>CourtListener</strong>中搜索相关背景。结果由AI综合生成——请通过原始来源核实。',
+    'personal.compare_tab': '比较',
+    'personal.compare_title': '竞争法律分析',
+    'personal.refresh': '刷新',
+    'personal.compare_hint': '在<strong>来源与主题 → 追踪公司</strong>中添加2家或以上公司，以生成竞争法律分析。',
+    'personal.compare_analyzing': '正在分析SEC备案、法院案例和您的新闻来源…',
+    'personal.compare_note': '分析基于<strong>SEC EDGAR</strong>公开备案、<strong>CourtListener</strong>联邦案例和您所选的新闻来源。由AI综合生成——请通过原始来源核实。',
+    'sharing.title': '分享一个观点',
+    'sharing.compose_ph': '分享观点或提出问题…',
+    'sharing.post': '发布',
+    'sharing.load_more': '加载更多',
+    'sharing.no_thoughts': '还没有任何观点。快来第一个分享吧！',
+    'sharing.edited': '(已编辑)',
+    'sharing.comment_count': '💬 {n} 条评论',
+    'sharing.confirm_delete': '确定要永久删除吗？',
+    'sharing.post_failed': '发布失败：{msg}',
+    'sharing.comment_failed': '评论发布失败：{msg}',
+    'sharing.edit_failed': '保存修改失败：{msg}',
+    'sharing.delete_failed': '删除失败：{msg}',
+    'sharing.edit': '编辑',
+    'sharing.delete': '删除',
+    'sharing.save': '保存',
+    'sharing.cancel': '取消',
+    'sharing.comment_ph': '添加评论…',
+    'sharing.comment_submit': '发布',
+    'sharing.comments_load_failed': '无法加载评论。',
+    'sharing.load_failed': '无法加载观点。',
+    'common.loading': '加载中…',
+    'common.add_plus': '+ 添加',
+    'common.add': '添加',
+    'common.track_plus': '+ 追踪',
+    'common.open_original': '查看原文 ↗',
+    'common.fetching_article': '正在获取文章…',
+    'common.expand': '▼ 展开',
+    'common.collapse': '▲ 收起',
+    'personal.use_in_qa': '在法律问答中使用 →',
+    'settings.legal_topics': '法律主题',
+    'settings.legal_topics_desc': '切换主题并添加自定义关键词。这些将影响您的每日简报。',
+    'settings.keyword_ph': '添加关键词(例如：反垄断、GDPR、SEC执法…)',
+    'settings.business_topics': '商业主题',
+    'settings.business_topics_desc': '选择行业并追踪公司。简报将呈现每家公司的法律机会与风险。',
+    'settings.business_sectors': '商业行业',
+    'settings.tracked_companies': '追踪的公司',
+    'settings.tracked_companies_desc': '简报会获取每家公司的公开法律与监管信息。',
+    'settings.company_ph': '公司名称(例如：Apple、JPMorgan、Tesla…)',
+    'settings.news_sources': '新闻来源',
+    'settings.news_sources_desc': '添加法律新闻网站。简报引擎会引用这些来源。',
+    'settings.archive_schedule': '归档计划',
+    'settings.archive_schedule_desc': '根据上方设置的主题、行业和追踪公司，在每天指定的一个或多个时间自动生成并保存简报。',
+    'settings.add_time': '+ 添加时间',
+    'settings.allow_notif': '允许通知',
+    'settings.footer_note': '更改将在下次刷新时生效。',
+    'settings.alarm_status_on': '✓ 每天{times}自动生成',
+    'settings.alarm_status_off': '尚未设置时间——请在上方添加',
+    'topic.ip': '知识产权与科技',
+    'topic.reg': '监管与合规',
+    'topic.lit': '诉讼与法院',
+    'topic.corp': '公司与并购',
+    'sector.technology': '科技与AI',
+    'sector.finance': '金融与银行',
+    'sector.healthcare': '医疗与制药',
+    'sector.realestate': '房地产',
+    'sector.energy': '能源与环境',
+    'sector.retail': '零售与电商',
+    'sector.media': '媒体与娱乐',
+    'sector.manufacturing': '制造业',
+    'sector.startup': '创业公司与风投',
+    'time.just_now': '刚刚',
+    'time.min_ago': '{n}分钟前',
+    'time.hr_ago': '{n}小时前',
+    'time.day_ago': '{n}天前'
+  },
+  ja: {
+    'gate.title': 'ニックネームを入力して始めましょう',
+    'gate.desc': '友達と意見や質問を共有するにはニックネームが必要です。新しいニックネームはその場でパスワードを登録し、既存のニックネームは同じパスワードでのみログインできます。',
+    'gate.nickname_ph': 'ニックネーム',
+    'gate.password_ph': 'パスワード(4文字以上)',
+    'gate.start_btn': '始める',
+    'gate.recent_title': '最近の意見と質問',
+    'gate.recent_loading': '最近の意見を読み込み中…',
+    'gate.recent_empty': 'まだ意見がありません。',
+    'gate.recent_error': '最近の意見を読み込めませんでした。',
+    'gate.signing_in': 'ログイン準備中です。しばらくしてからもう一度お試しください。',
+    'gate.wrong_password': 'パスワードが違います。',
+    'gate.signin_failed': 'ログインに失敗しました：{msg}',
+    'sharing.auth_failed': 'ログインに失敗しました。しばらくしてから再読み込みしてください。',
+    'header.tagline': 'リーガルインテリジェンス · チームエディション',
+    'nav.brief': 'デイリーブリーフィング',
+    'nav.personal': 'パーソナルツール',
+    'nav.sharing': '意見共有',
+    'nav.settings': 'ソース & トピック',
+    'brief.today_tab': '今日',
+    'brief.archive_tab': 'アーカイブ',
+    'brief.title': 'デイリーブリーフィング',
+    'brief.ready': '準備完了',
+    'brief.generating': '生成中…',
+    'brief.listen': '再生',
+    'brief.renew': '更新',
+    'brief.try_again': '再試行',
+    'brief.podcast': 'ポッドキャスト要約',
+    'brief.no_saved': 'まだ保存されたブリーフィングがありません。Todayタブで最初のブリーフィングを作成してください。',
+    'archive.search_ph': '日付・トピック・キーワードでアーカイブを検索…',
+    'trend.title': 'トレンド分析',
+    'trend.desc': '選択した期間の保存済みブリーフィングのパターンを分析します。トピックを何も選ばなければ全体が対象になります。',
+    'trend.last7': '過去7日間',
+    'trend.last30': '過去1か月',
+    'trend.last90': '過去3か月',
+    'trend.days_label': '日',
+    'trend.run': '分析を実行',
+    'trend.not_enough': 'この期間に分析できるブリーフィングが不足しています(最低2件必要)。',
+    'trend.no_match': 'この期間に選択したトピックに一致する内容がありません。',
+    'trend.analyzing': '分析中…',
+    'trend.failed': 'トレンド分析に失敗しました：{msg}',
+    'personal.search_tab': 'ストーリー検索',
+    'personal.search_desc': '選択したソースの法律ニュースとCourtListenerの連邦判例を検索します。',
+    'personal.search_ph': '例：GDPR執行、特許侵害、SEC…',
+    'personal.search_btn': '検索',
+    'personal.searching': '検索中…',
+    'personal.qa_tab': 'リーガルQ&A',
+    'personal.no_briefing': 'ブリーフィング未読み込み',
+    'personal.load_from_archive': 'アーカイブから読み込む',
+    'personal.qa_welcome': 'こんにちは！法律リサーチアシスタントです。読み込んだブリーフィング、選択したニュースソース、CourtListener(無料の連邦判例)を使って質問にお答えします。Archiveタブからブリーフィングを読み込むか、どんな法律の質問でもどうぞ。',
+    'personal.now': 'たった今',
+    'personal.qa_ph': '法律に関する質問を入力…',
+    'personal.send': '送信',
+    'personal.qa_note': '各質問はニュースソースと<strong>CourtListener</strong>から関連コンテキストを検索してから回答します。結果はAIによる統合です — 一次情報でご確認ください。',
+    'personal.compare_tab': '比較',
+    'personal.compare_title': '競合法務分析',
+    'personal.refresh': '更新',
+    'personal.compare_hint': '<strong>ソース & トピック → 追跡中の企業</strong>で2社以上を追加すると、競合法務分析が生成されます。',
+    'personal.compare_analyzing': 'SEC提出書類、判例、ニュースソースを分析中…',
+    'personal.compare_note': 'この分析は<strong>SEC EDGAR</strong>の公開書類、<strong>CourtListener</strong>の連邦判例、選択したニュースソースに基づいています。AIによる統合です — 一次情報でご確認ください。',
+    'sharing.title': '意見を共有する',
+    'sharing.compose_ph': '意見や質問を共有しましょう…',
+    'sharing.post': '投稿',
+    'sharing.load_more': 'もっと見る',
+    'sharing.no_thoughts': 'まだ意見がありません。最初に共有してみましょう！',
+    'sharing.edited': '(編集済み)',
+    'sharing.comment_count': '💬 コメント{n}件',
+    'sharing.confirm_delete': '本当に削除しますか？',
+    'sharing.post_failed': '投稿に失敗しました：{msg}',
+    'sharing.comment_failed': 'コメントの投稿に失敗しました：{msg}',
+    'sharing.edit_failed': '編集の保存に失敗しました：{msg}',
+    'sharing.delete_failed': '削除に失敗しました：{msg}',
+    'sharing.edit': '編集',
+    'sharing.delete': '削除',
+    'sharing.save': '保存',
+    'sharing.cancel': 'キャンセル',
+    'sharing.comment_ph': 'コメントを追加…',
+    'sharing.comment_submit': '投稿',
+    'sharing.comments_load_failed': 'コメントを読み込めませんでした。',
+    'sharing.load_failed': '意見を読み込めませんでした。',
+    'common.loading': '読み込み中…',
+    'common.add_plus': '+ 追加',
+    'common.add': '追加',
+    'common.track_plus': '+ 追跡',
+    'common.open_original': '元記事を開く ↗',
+    'common.fetching_article': '記事を取得中…',
+    'common.expand': '▼ 展開',
+    'common.collapse': '▲ 折りたたむ',
+    'personal.use_in_qa': 'リーガルQ&Aで使う →',
+    'settings.legal_topics': '法律トピック',
+    'settings.legal_topics_desc': 'トピックを切り替えたり、カスタムキーワードを追加します。デイリーブリーフィングに反映されます。',
+    'settings.keyword_ph': 'キーワードを追加(例：独占禁止、GDPR、SEC執行…)',
+    'settings.business_topics': 'ビジネストピック',
+    'settings.business_topics_desc': '業種を選択し、企業を追跡します。ブリーフィングで各企業の法的機会とリスクが表示されます。',
+    'settings.business_sectors': '業種',
+    'settings.tracked_companies': '追跡中の企業',
+    'settings.tracked_companies_desc': 'ブリーフィングは各企業の公開されている法律・規制情報を取得します。',
+    'settings.company_ph': '企業名(例：Apple、JPMorgan、Tesla…)',
+    'settings.news_sources': 'ニュースソース',
+    'settings.news_sources_desc': '法律ニュースサイトを追加してください。ブリーフィングエンジンがこれらのソースを参照します。',
+    'settings.archive_schedule': 'アーカイブスケジュール',
+    'settings.archive_schedule_desc': '上記の現在のトピック・業種・追跡企業を使って、毎日指定した1つ以上の時刻に自動でブリーフィングを生成・保存します。',
+    'settings.add_time': '+ 時刻を追加',
+    'settings.allow_notif': '通知を許可',
+    'settings.footer_note': '変更は次回の更新時に反映されます。',
+    'settings.alarm_status_on': '✓ 毎日{times}に自動生成',
+    'settings.alarm_status_off': 'スケジュールされた時刻はありません — 上で追加してください',
+    'topic.ip': 'IP・テクノロジー',
+    'topic.reg': '規制・コンプライアンス',
+    'topic.lit': '訴訟・裁判所',
+    'topic.corp': 'コーポレート・M&A',
+    'sector.technology': 'テクノロジー・AI',
+    'sector.finance': '金融・銀行',
+    'sector.healthcare': 'ヘルスケア・製薬',
+    'sector.realestate': '不動産',
+    'sector.energy': 'エネルギー・環境',
+    'sector.retail': '小売・Eコマース',
+    'sector.media': 'メディア・エンタメ',
+    'sector.manufacturing': '製造業',
+    'sector.startup': 'スタートアップ・VC',
+    'time.just_now': 'たった今',
+    'time.min_ago': '{n}分前',
+    'time.hr_ago': '{n}時間前',
+    'time.day_ago': '{n}日前'
+  }
+};
+
+function t(key, vars) {
+  let str = (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key;
+  if (vars) Object.keys(vars).forEach(k => { str = str.split('{' + k + '}').join(vars[k]); });
+  return str;
+}
+window.t = t;
+
+function retranslate() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    el.innerHTML = t(el.getAttribute('data-i18n'));
+  });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+    el.placeholder = t(el.getAttribute('data-i18n-ph'));
+  });
+}
+window.retranslate = retranslate;
+
+function applyLanguage(lang) {
+  currentLang = I18N[lang] ? lang : 'en';
+  document.getElementById('gate-lang-select').value = currentLang;
+  document.getElementById('app-lang-select').value  = currentLang;
+  retranslate();
+  window.renderTrendTopicPills && window.renderTrendTopicPills();
+  window.renderAlarmTimes && window.renderAlarmTimes();
+}
+window.applyLanguage = applyLanguage;
+
+function setLanguage(lang) {
+  applyLanguage(lang);
+  try { localStorage.setItem(LANG_KEY, currentLang); } catch {}
+  if (nickname && myUid) syncUserProfile(); // logged in — also persist to this account
+}
+window.setLanguage = setLanguage;
+
+try {
+  const savedLang = localStorage.getItem(LANG_KEY);
+  applyLanguage(savedLang || 'en');
+} catch { applyLanguage('en'); }
 
 function setComposeEnabled(enabled, hintMsg) {
   const btn = document.getElementById('thought-post-btn');
@@ -1461,16 +2491,87 @@ function setComposeEnabled(enabled, hintMsg) {
   if (hint) hint.textContent = hintMsg || '';
 }
 
+let authInitDone = false;
 onAuthStateChanged(auth, user => {
+  if (!authInitDone) {
+    authInitDone = true;
+    // Only sign in anonymously if no session (anonymous OR a permanent claimed
+    // account) was already restored from a previous visit — an unconditional
+    // call here would clobber a persisted permanent login on every reload.
+    if (!user) {
+      signInAnonymously(auth).catch(() => {
+        setComposeEnabled(false, t('sharing.auth_failed'));
+      });
+    }
+  }
   if (!user) return;
   myUid = user.uid;
   setComposeEnabled(true);
   if (feedLoaded) initThoughtsFeed();   // re-render so "내가 쓴 글"에 수정·삭제 버튼이 뜨도록
 });
 
-signInAnonymously(auth).catch(() => {
-  setComposeEnabled(false, '로그인에 실패했어요. 잠시 후 새로고침해 주세요.');
-});
+// ── Per-nickname profile sync (Sources & Topics + Archive follow the nickname across devices) ──
+async function loadUserProfile(nick) {
+  try {
+    const snap = await getDoc(doc(db, 'users', nick));
+    if (!snap.exists()) return;
+    const p = snap.data();
+    if (Array.isArray(p.urls)) {
+      window.S.urls = p.urls;
+      document.getElementById('url-items').innerHTML = p.urls.map(v =>
+        `<div class="url-item"><span>${escHtml(v)}</span><button class="url-del" onclick="removeUrl(this,'${escHtml(v)}')">×</button></div>`
+      ).join('');
+    }
+    if (p.topics) {
+      Object.assign(window.S.topics, p.topics);
+      document.querySelectorAll('.topic-pill[data-topic]').forEach(el => {
+        el.classList.toggle('off', !window.S.topics[el.dataset.topic]);
+      });
+    }
+    if (p.sectors) {
+      window.S.sectors = p.sectors;
+      document.querySelectorAll('.topic-pill[data-sector]').forEach(el => {
+        el.classList.toggle('off', !window.S.sectors[el.dataset.sector]);
+      });
+    }
+    if (Array.isArray(p.keywords))  { window.S.keywords  = p.keywords;  window.renderKwChips(); }
+    if (Array.isArray(p.companies)) { window.S.companies = p.companies; window.renderCoChips(); }
+    if (p.trendConfig) { window.S.trendConfig = p.trendConfig; window.renderTrendTopicPills(); }
+    if (Array.isArray(p.archiveSchedule)) { window.ALARM.times = p.archiveSchedule; window.renderAlarmTimes(); }
+    if (p.lang && p.lang !== currentLang) { applyLanguage(p.lang); try { localStorage.setItem(LANG_KEY, p.lang); } catch {} }
+  } catch (e) { /* keep local defaults if the profile fetch fails */ }
+}
+
+async function syncUserProfile() {
+  if (!nickname || !myUid) return;
+  try {
+    await setDoc(doc(db, 'users', nickname), {
+      ownerUid: myUid,
+      urls: window.S.urls, topics: window.S.topics, sectors: window.S.sectors,
+      keywords: window.S.keywords, companies: window.S.companies,
+      lang: currentLang, trendConfig: window.S.trendConfig,
+      archiveSchedule: window.ALARM.times, updatedAt: serverTimestamp()
+    }, { merge: true });
+  } catch (e) { /* best-effort — settings still work locally via localStorage */ }
+}
+window.syncUserProfile = syncUserProfile;
+
+async function loadArchiveFromCloud(nick) {
+  try {
+    const q    = query(collection(db, 'users', nick, 'archive'), orderBy('createdAt', 'desc'), limit(50));
+    const snap = await getDocs(q);
+    window.S.archive = snap.docs.map(d => d.data());
+    window.renderArchive();
+  } catch (e) { /* keep whatever local archive was already showing */ }
+}
+
+async function saveArchiveEntryToCloud(entry) {
+  if (!nickname) return; // pre-gate auto-generated briefings stay local-only (see spec 4-4)
+  try {
+    await addDoc(collection(db, 'users', nickname, 'archive'), { ...entry, createdAt: serverTimestamp() });
+  } catch (e) { /* local save already succeeded; cloud sync is best-effort */ }
+}
+window.saveArchiveEntryToCloud = saveArchiveEntryToCloud;
 
 function escHtml(s) {
   return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -1480,29 +2581,73 @@ function timeAgo(ts) {
   if (!ts) return '';
   const ms  = Date.now() - ts.toMillis();
   const min = Math.floor(ms / 60000);
-  if (min < 1)  return '방금 전';
-  if (min < 60) return `${min}분 전`;
+  if (min < 1)  return t('time.just_now');
+  if (min < 60) return t('time.min_ago', {n: min});
   const hr = Math.floor(min / 60);
-  if (hr < 24)  return `${hr}시간 전`;
+  if (hr < 24)  return t('time.hr_ago', {n: hr});
   const day = Math.floor(hr / 24);
-  return `${day}일 전`;
+  return t('time.day_ago', {n: day});
 }
 
 // ── Start gate ──────────────────────────────────────────────────────────────
 function onGateNicknameInput() {
-  const v = document.getElementById('gate-nickname').value.trim();
-  document.getElementById('gate-enter-btn').disabled = !v;
+  const v  = document.getElementById('gate-nickname').value.trim();
+  const pw = document.getElementById('gate-password').value;
+  document.getElementById('gate-enter-btn').disabled = !v || pw.length < 4;
 }
 
-function enterApp() {
-  const input = document.getElementById('gate-nickname');
-  const v = input.value.trim();
-  if (!v) return;
+function showGateError(msg) {
+  const el = document.getElementById('gate-error');
+  if (el) el.textContent = msg;
+}
+
+async function enterApp() {
+  const v  = document.getElementById('gate-nickname').value.trim().replace(/\//g, ''); // '/' would break the Firestore doc path
+  const pw = document.getElementById('gate-password').value;
+  showGateError('');
+  if (!v || pw.length < 4) return;
+  if (!auth.currentUser) { showGateError(t('gate.signing_in')); return; }
+
+  const btn = document.getElementById('gate-enter-btn');
+  btn.disabled = true;
+  const email = v + '@lexbrief.local';
+  let claimed = false;
+
+  try {
+    await linkWithCredential(auth.currentUser, EmailAuthProvider.credential(email, pw));
+    claimed = true; // new nickname claimed — uid unchanged, profile doc doesn't exist yet
+  } catch (e) {
+    // already-in-use: another uid already owns this nickname. provider-already-linked:
+    // this browser was already signed in as that nickname before this reload. Both
+    // cases mean "try signing in with the given password instead."
+    if (['auth/email-already-in-use', 'auth/credential-already-in-use', 'auth/provider-already-linked'].includes(e.code)) {
+      try {
+        await signInWithEmailAndPassword(auth, email, pw); // existing nickname login — uid switches to its real owner
+      } catch (e2) {
+        showGateError(t('gate.wrong_password'));
+        btn.disabled = false;
+        return;
+      }
+    } else {
+      showGateError(t('gate.signin_failed', {msg: e.message}));
+      btn.disabled = false;
+      return;
+    }
+  }
+
   nickname = v;
   try { localStorage.setItem(NICK_KEY, nickname); } catch {}
   document.getElementById('start-gate').classList.add('hidden');
   document.getElementById('app-root').style.display = 'flex';
   if (!feedLoaded) initThoughtsFeed();
+  if (claimed) {
+    syncUserProfile(); // create the profile doc now, so archive saves (which check
+                        // ownership via this doc) work even if Settings is never touched
+  } else {
+    loadUserProfile(nickname); // existing nickname — pull the real synced values,
+                                // do NOT sync first or we'd overwrite them with local defaults
+  }
+  loadArchiveFromCloud(nickname);
 }
 
 async function renderGateRecent() {
@@ -1511,7 +2656,7 @@ async function renderGateRecent() {
     const q    = query(collection(db, 'thoughts'), orderBy('createdAt', 'desc'), limit(5));
     const snap = await getDocs(q);
     if (snap.empty) {
-      el.innerHTML = '<div class="hint" style="padding:1rem 0">아직 등록된 의견이 없어요.</div>';
+      el.innerHTML = `<div class="hint" style="padding:1rem 0">${t('gate.recent_empty')}</div>`;
       return;
     }
     el.innerHTML = snap.docs.map(d => {
@@ -1524,35 +2669,35 @@ async function renderGateRecent() {
         </div>`;
     }).join('');
   } catch (e) {
-    el.innerHTML = '<div class="hint" style="padding:1rem 0">최근 의견을 불러오지 못했어요.</div>';
+    el.innerHTML = `<div class="hint" style="padding:1rem 0">${t('gate.recent_error')}</div>`;
   }
 }
 
 // ── My Thoughts feed (inside the app) ───────────────────────────────────────
-function thoughtCardHtml(id, t) {
-  thoughtsCache[id] = t;
-  const mine      = !!(myUid && t.authorUid && t.authorUid === myUid);
-  const editedTag = t.editedAt ? ' <span class="thought-edited">(수정됨)</span>' : '';
+function thoughtCardHtml(id, th) {
+  thoughtsCache[id] = th;
+  const mine      = !!(myUid && th.authorUid && th.authorUid === myUid);
+  const editedTag = th.editedAt ? ` <span class="thought-edited">${t('sharing.edited')}</span>` : '';
   const ownerBtns = mine
-    ? `<button class="btn-ghost" onclick="editThought('${id}')">수정</button>
-       <button class="btn-ghost" id="thought-del-${id}" onclick="deleteThought('${id}')">삭제</button>`
+    ? `<button class="btn-ghost" onclick="editThought('${id}')">${t('sharing.edit')}</button>
+       <button class="btn-ghost" id="thought-del-${id}" onclick="deleteThought('${id}')">${t('sharing.delete')}</button>`
     : '';
   return `
     <div class="thought-card" id="thought-${id}">
       <div class="thought-card-head">
-        <span class="thought-nick">${escHtml(t.nickname)}</span>
-        <span class="thought-time">${timeAgo(t.createdAt)}${editedTag}</span>
+        <span class="thought-nick">${escHtml(th.nickname)}</span>
+        <span class="thought-time">${timeAgo(th.createdAt)}${editedTag}</span>
       </div>
-      <div class="thought-text" id="thought-text-${id}">${escHtml(t.text)}</div>
+      <div class="thought-text" id="thought-text-${id}">${escHtml(th.text)}</div>
       <div class="thought-card-actions">
-        <button class="btn-ghost" onclick="toggleComments('${id}')" id="thought-ctoggle-${id}">💬 댓글 ${t.commentCount || 0}개</button>
+        <button class="btn-ghost" onclick="toggleComments('${id}')" id="thought-ctoggle-${id}">${t('sharing.comment_count', {n: th.commentCount || 0, s: (th.commentCount === 1 ? '' : 's')})}</button>
         ${ownerBtns}
       </div>
       <div class="thought-comments" id="thought-comments-${id}">
         <div id="thought-clist-${id}"></div>
         <div class="comment-input-row">
-          <input type="text" id="thought-cinput-${id}" placeholder="댓글 남기기…" maxlength="500" onkeydown="if(event.key==='Enter')postComment('${id}')">
-          <button onclick="postComment('${id}')">등록</button>
+          <input type="text" id="thought-cinput-${id}" placeholder="${t('sharing.comment_ph')}" maxlength="500" onkeydown="if(event.key==='Enter')postComment('${id}')">
+          <button onclick="postComment('${id}')">${t('sharing.comment_submit')}</button>
         </div>
       </div>
     </div>`;
@@ -1561,10 +2706,10 @@ function thoughtCardHtml(id, t) {
 function commentItemHtml(thoughtId, commentId, c) {
   commentsCache[thoughtId + ':' + commentId] = c;
   const mine      = !!(myUid && c.authorUid && c.authorUid === myUid);
-  const editedTag = c.editedAt ? ' <span class="thought-edited">(수정됨)</span>' : '';
+  const editedTag = c.editedAt ? ` <span class="thought-edited">${t('sharing.edited')}</span>` : '';
   const ownerBtns = mine
-    ? `<button class="comment-mini-btn" onclick="editComment('${thoughtId}','${commentId}')">수정</button>
-       <button class="comment-mini-btn" id="comment-del-${commentId}" onclick="deleteComment('${thoughtId}','${commentId}')">삭제</button>`
+    ? `<button class="comment-mini-btn" onclick="editComment('${thoughtId}','${commentId}')">${t('sharing.edit')}</button>
+       <button class="comment-mini-btn" id="comment-del-${commentId}" onclick="deleteComment('${thoughtId}','${commentId}')">${t('sharing.delete')}</button>`
     : '';
   return `
     <div class="comment-item" id="comment-${commentId}">
@@ -1576,20 +2721,20 @@ function commentItemHtml(thoughtId, commentId, c) {
 
 // ── Edit / delete a thought (owner only — enforced server-side by firestore.rules) ──
 function editThought(id) {
-  const t = thoughtsCache[id];
-  if (!t) return;
+  const th = thoughtsCache[id];
+  if (!th) return;
   document.getElementById('thought-text-' + id).innerHTML = `
-    <textarea class="edit-textarea" id="thought-edit-input-${id}" maxlength="500">${escHtml(t.text)}</textarea>
+    <textarea class="edit-textarea" id="thought-edit-input-${id}" maxlength="500">${escHtml(th.text)}</textarea>
     <div class="edit-actions">
-      <button class="btn-ghost" onclick="cancelEditThought('${id}')">취소</button>
-      <button class="btn-primary" onclick="saveThoughtEdit('${id}')">저장</button>
+      <button class="btn-ghost" onclick="cancelEditThought('${id}')">${t('sharing.cancel')}</button>
+      <button class="btn-primary" onclick="saveThoughtEdit('${id}')">${t('sharing.save')}</button>
     </div>`;
 }
 
 function cancelEditThought(id) {
-  const t = thoughtsCache[id];
-  if (!t) return;
-  document.getElementById('thought-text-' + id).textContent = t.text;
+  const th = thoughtsCache[id];
+  if (!th) return;
+  document.getElementById('thought-text-' + id).textContent = th.text;
 }
 
 async function saveThoughtEdit(id) {
@@ -1603,16 +2748,16 @@ async function saveThoughtEdit(id) {
     document.getElementById('thought-text-' + id).textContent = text;
     const timeEl = document.querySelector('#thought-' + id + ' .thought-time');
     if (timeEl && !timeEl.querySelector('.thought-edited')) {
-      timeEl.insertAdjacentHTML('beforeend', ' <span class="thought-edited">(수정됨)</span>');
+      timeEl.insertAdjacentHTML('beforeend', ` <span class="thought-edited">${t('sharing.edited')}</span>`);
     }
   } catch (e) {
-    alert('수정에 실패했어요: ' + e.message);
+    alert(t('sharing.edit_failed', {msg: e.message}));
   }
 }
 
 async function deleteThought(id) {
   if (!myUid) return;
-  if (!confirm('정말 삭제할까요?')) return;
+  if (!confirm(t('sharing.confirm_delete'))) return;
   const btn = document.getElementById('thought-del-' + id);
   if (btn) btn.disabled = true;
   try {
@@ -1620,7 +2765,7 @@ async function deleteThought(id) {
     delete thoughtsCache[id];
     document.getElementById('thought-' + id)?.remove();
   } catch (e) {
-    alert('삭제에 실패했어요: ' + e.message);
+    alert(t('sharing.delete_failed', {msg: e.message}));
     if (btn) btn.disabled = false;
   }
 }
@@ -1632,8 +2777,8 @@ function editComment(thoughtId, commentId) {
   document.getElementById('comment-text-' + commentId).innerHTML = `
     <textarea class="edit-textarea" id="comment-edit-input-${commentId}" maxlength="500" rows="2">${escHtml(c.text)}</textarea>
     <div class="edit-actions">
-      <button class="comment-mini-btn" onclick="cancelEditComment('${thoughtId}','${commentId}')">취소</button>
-      <button class="comment-mini-btn" onclick="saveCommentEdit('${thoughtId}','${commentId}')">저장</button>
+      <button class="comment-mini-btn" onclick="cancelEditComment('${thoughtId}','${commentId}')">${t('sharing.cancel')}</button>
+      <button class="comment-mini-btn" onclick="saveCommentEdit('${thoughtId}','${commentId}')">${t('sharing.save')}</button>
     </div>`;
 }
 
@@ -1655,22 +2800,22 @@ async function saveCommentEdit(thoughtId, commentId) {
     document.getElementById('comment-text-' + commentId).textContent = text;
     const nickEl = document.querySelector('#comment-' + commentId + ' .comment-nick');
     if (nickEl && !nickEl.querySelector('.thought-edited')) {
-      nickEl.insertAdjacentHTML('beforeend', ' <span class="thought-edited">(수정됨)</span>');
+      nickEl.insertAdjacentHTML('beforeend', ` <span class="thought-edited">${t('sharing.edited')}</span>`);
     }
   } catch (e) {
-    alert('수정에 실패했어요: ' + e.message);
+    alert(t('sharing.edit_failed', {msg: e.message}));
   }
 }
 
 async function deleteComment(thoughtId, commentId) {
   if (!myUid) return;
-  if (!confirm('정말 삭제할까요?')) return;
+  if (!confirm(t('sharing.confirm_delete'))) return;
   const btn = document.getElementById('comment-del-' + commentId);
   if (btn) btn.disabled = true;
   try {
     await deleteDoc(doc(db, 'thoughts', thoughtId, 'comments', commentId));
   } catch (e) {
-    alert('삭제에 실패했어요: ' + e.message);
+    alert(t('sharing.delete_failed', {msg: e.message}));
     if (btn) btn.disabled = false;
     return;
   }
@@ -1679,7 +2824,7 @@ async function deleteComment(thoughtId, commentId) {
   const toggle = document.getElementById('thought-ctoggle-' + thoughtId);
   if (toggle) {
     const n = Math.max(0, (parseInt(toggle.textContent.match(/\d+/)?.[0] || '0', 10)) - 1);
-    toggle.textContent = `💬 댓글 ${n}개`;
+    toggle.textContent = t('sharing.comment_count', {n, s: (n === 1 ? '' : 's')});
   }
   try {
     await updateDoc(doc(db, 'thoughts', thoughtId), { commentCount: increment(-1) });
@@ -1692,19 +2837,19 @@ async function deleteComment(thoughtId, commentId) {
 async function initThoughtsFeed() {
   feedLoaded = true;
   const feedEl = document.getElementById('thought-feed');
-  feedEl.innerHTML = '<div class="hint">불러오는 중…</div>';
+  feedEl.innerHTML = `<div class="hint">${t('common.loading')}</div>`;
   try {
     const q    = query(collection(db, 'thoughts'), orderBy('createdAt', 'desc'), limit(50));
     const snap = await getDocs(q);
     if (snap.empty) {
-      feedEl.innerHTML = '<div class="hint">아직 등록된 의견이 없어요. 첫 의견을 남겨보세요!</div>';
+      feedEl.innerHTML = `<div class="hint">${t('sharing.no_thoughts')}</div>`;
       return;
     }
     lastDoc = snap.docs[snap.docs.length - 1];
     feedEl.innerHTML = snap.docs.map(d => thoughtCardHtml(d.id, d.data())).join('');
     document.getElementById('thought-more-btn').style.display = snap.docs.length < 50 ? 'none' : 'inline-flex';
   } catch (e) {
-    feedEl.innerHTML = '<div class="hint">의견을 불러오지 못했어요.</div>';
+    feedEl.innerHTML = `<div class="hint">${t('sharing.load_failed')}</div>`;
   }
 }
 
@@ -1739,7 +2884,7 @@ async function postThought() {
     if (feedEl.querySelector('.hint')) feedEl.innerHTML = '';
     feedEl.insertAdjacentHTML('afterbegin', thoughtCardHtml(docRef.id, { nickname, text, authorUid: myUid, createdAt: { toMillis: () => Date.now() }, commentCount: 0 }));
   } catch (e) {
-    alert('게시에 실패했어요: ' + e.message);
+    alert(t('sharing.post_failed', {msg: e.message}));
   } finally {
     btn.disabled = false;
   }
@@ -1752,7 +2897,7 @@ async function toggleComments(thoughtId) {
   if (open && !box.dataset.loaded) {
     box.dataset.loaded = '1';
     const listEl = document.getElementById('thought-clist-' + thoughtId);
-    listEl.innerHTML = '<div class="hint" style="padding:.5rem 0">불러오는 중…</div>';
+    listEl.innerHTML = `<div class="hint" style="padding:.5rem 0">${t('common.loading')}</div>`;
     try {
       const q    = query(collection(db, 'thoughts', thoughtId, 'comments'), orderBy('createdAt', 'asc'));
       const snap = await getDocs(q);
@@ -1760,7 +2905,7 @@ async function toggleComments(thoughtId) {
         ? ''
         : snap.docs.map(d => commentItemHtml(thoughtId, d.id, d.data())).join('');
     } catch (e) {
-      listEl.innerHTML = '<div class="hint" style="padding:.5rem 0">댓글을 불러오지 못했어요.</div>';
+      listEl.innerHTML = `<div class="hint" style="padding:.5rem 0">${t('sharing.comments_load_failed')}</div>`;
     }
   }
 }
@@ -1779,9 +2924,9 @@ async function postComment(thoughtId) {
     listEl.insertAdjacentHTML('beforeend', commentItemHtml(thoughtId, commentRef.id, { nickname, text, authorUid: myUid }));
     const toggle = document.getElementById('thought-ctoggle-' + thoughtId);
     const n = (parseInt(toggle.textContent.match(/\d+/)?.[0] || '0', 10)) + 1;
-    toggle.textContent = `💬 댓글 ${n}개`;
+    toggle.textContent = t('sharing.comment_count', {n, s: (n === 1 ? '' : 's')});
   } catch (e) {
-    alert('댓글 등록에 실패했어요: ' + e.message);
+    alert(t('sharing.comment_failed', {msg: e.message}));
   }
 }
 

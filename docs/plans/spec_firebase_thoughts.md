@@ -1,10 +1,11 @@
 # Spec — Firebase 친구 의견/질문 게시판 (LexBrief)
 
-상태: 1~10번(닉네임 게이트 + 친구 의견/질문 게시판) 구현 완료, Playwright
-헤드리스 브라우저로 시작 화면·닉네임 게이트·서브탭 전환·새로고침 후 프리필까지
-동작 확인함. 11번(작성자 본인 수정·삭제, Anonymous Auth)은 plan 작성 완료,
-구현 대기. 메이저 기능(외부 서비스 신규 통합 + 신규 데이터 모델 + 신규
-화면)이라 `spec_` 문서로 영구 보존한다 (구현 후에도 삭제하지 않음).
+상태: 1~11번(닉네임 게이트 + 친구 의견/질문 게시판 + 작성자 본인
+수정·삭제) 구현 완료, Playwright 헤드리스 브라우저로 라이브 Firestore에
+대고 전체 흐름(글 작성→수정→댓글→댓글 삭제→글 삭제, 타인 글 보안 규칙
+거부) 검증 완료. 12번(닉네임 중복 방지 — 비밀번호 클레임)은 plan 작성
+완료, 구현 대기. 메이저 기능(외부 서비스 신규 통합 + 신규 데이터 모델 +
+신규 화면)이라 `spec_` 문서로 영구 보존한다 (구현 후에도 삭제하지 않음).
 
 **남은 사용자 액션** — Firebase 콘솔 → Firestore Database → "규칙" 탭에
 이 저장소의 `firestore.rules` 내용을 붙여넣고 게시해야 실제 쓰기 보안이
@@ -585,3 +586,325 @@ history) 저장도 안 한다 — "(수정됨)" 표시 하나로 충분하다고
 - Firebase 콘솔 → Authentication → Sign-in method → **Anonymous** 활성화.
 - 갱신된 `firestore.rules` 내용을 Firebase 콘솔의 "규칙" 탭에 다시
   붙여넣고 게시.
+
+## 12. 닉네임 중복 방지 — Firebase 진짜 계정으로 업그레이드
+
+사용자 요청: "닉네임을 한 사람당 하나만 쓰도록, 중복 안 되게." 지금까지는
+닉네임이 순수 자유 입력이라 다른 사람이 같은 닉네임을 그대로 입력하면
+그 사람 행세를 할 수 있었다(8번 리스크, `spec_site_restructure_i18n.md`
+4-2에서 여러 번 짚은 한계). 이번 기능은 그 한계를 실제로 메운다.
+
+**plan-verify 중 설계가 한 번 바뀌었다** — 처음 초안은 지금 구조
+(Anonymous Auth)를 그대로 두고 `users/{nickname}` 문서에 비밀번호
+해시 필드 하나를 추가해서 Firestore 규칙으로 직접 비교하는 방식이었다.
+검증 과정에서 "Firebase 진짜 로그인으로 바꾸면 기존 uid가 깨진다"는
+초기 판단이 성급했다는 걸 발견했다 — Firebase Auth의
+`linkWithCredential`(익명 계정을 그 자리에서 진짜 계정으로 업그레이드,
+uid 그대로 유지)를 공식 문서로 재확인한 결과, uid를 안 깨면서 진짜
+로그인 시스템으로 가는 게 가능했다. 아래는 그 결과 확정된 설계다.
+
+### 12-1. 핵심 아이디어 — `linkWithCredential`로 익명 계정을 그대로 업그레이드
+
+닉네임을 이메일처럼 취급한다(`{nickname}@lexbrief.local`, 실제로 메일이
+가는 주소는 아니고 Firebase Auth가 이메일 형식을 요구해서 형식만
+맞추는 용도). 비밀번호는 사용자가 직접 입력한 값을 그대로 쓴다.
+
+- **새 닉네임(클레임)** — 앱은 이미 익명으로 로그인된 상태다(11번에서
+  만든 `signInAnonymously` 흐름 그대로 유지). 여기서
+  `linkWithCredential(auth.currentUser, EmailAuthProvider.credential(email, password))`
+  를 호출하면, 지금 쓰던 익명 계정이 "진짜 계정"으로 승격되면서
+  **uid는 그대로 유지된다**(공식 문서: "Users are identifiable by the
+  same Firebase user ID regardless of the authentication provider").
+  즉 11번에서 만든 `thoughts`/`comments`의 `authorUid` 소유권, 4번의
+  Sources & Topics 동기화 로직을 하나도 안 건드려도 된다 — `myUid`가
+  바뀌지 않으니까.
+- **이미 있는 닉네임(로그인)** — 다른 사람이 이미 그 이메일로 계정을
+  만들어놨다면 `linkWithCredential`이 `auth/email-already-in-use`
+  (또는 `auth/credential-already-in-use`)로 실패한다. 이 에러를 잡아서
+  대신 `signInWithEmailAndPassword(auth, email, password)`를 호출한다
+  — 비밀번호가 맞으면 그 계정으로 전환되고(uid가 원래 그 닉네임을
+  처음 만들었던 기기의 uid로 바뀐다 — 이게 바로 "다른 기기에서도 내
+  계정으로 들어가는" 정상 동작이다), 틀리면 `auth/wrong-password`류
+  에러가 나서 그대로 사용자에게 "비밀번호가 틀렸어요"로 안내한다.
+
+이 두 시도(link 실패 → sign-in 시도)만으로 "새 닉네임인지 이미 있는
+닉네임인지"를 미리 조회할 필요가 아예 없어진다 — Firebase가 결과로
+알려주는 에러 코드를 보고 반응만 하면 된다. 그래서 게이트 UI도 "클레임
+모드/로그인 모드"로 미리 갈라놓을 필요 없이 닉네임 + 비밀번호 입력칸
+하나씩만 두고, 제출했을 때 결과에 따라 안내 메시지만 바뀌면 된다 —
+1차 초안보다 훨씬 단순해졌다.
+
+### 12-2. 왜 이게 1차 초안보다 나은지
+
+- **uid가 그대로 유지된다** — 1차 초안이 걱정했던 "기존 데이터 고아화"
+  문제가 애초에 발생하지 않는다.
+- **비밀번호 검증을 Firebase가 대신 한다** — 클라이언트에서 직접
+  SHA-256 해시를 계산해서 Firestore 규칙으로 비교하는 방식(1차 초안)
+  보다 안전하다. Firebase Auth는 서버 측에서 scrypt 계열로 비밀번호를
+  저장·검증하고, 그 값이 Firestore 문서에 절대 노출되지 않는다.
+- **닉네임 중복 자체를 Firebase Auth가 원천적으로 막아준다** — 같은
+  이메일로 두 번째 계정을 못 만드는 건 Firebase Auth의 기본 동작이라,
+  Firestore 규칙에서 직접 "이미 있으면 거부" 로직을 짤 필요가 없다.
+- **읽기 프라이버시 한계가 사라진다** — 1차 초안은 "Firestore 규칙은
+  읽기 요청에 비밀번호를 실어 보낼 수 없어서 읽기 자체는 못 막는다"는
+  한계가 있었다. 이번 방식은 `request.auth.uid`가 이제 진짜(기기에
+  안 묶인) 소유권 증명이 되므로, `users/{nickname}` 문서의 읽기까지
+  `allow read: if request.auth != null && request.auth.uid == resource.data.ownerUid`
+  로 막을 수 있다 — 로그인해야만(=비밀번호를 알아야만) 그 프로필을
+  읽을 수 있다. `spec_site_restructure_i18n.md` 4-2/9에 적어둔
+  "닉네임 위장·엿보기 리스크"가 Sources & Topics/Archive 쪽에서는
+  이번 기능으로 실질적으로 해소된다(친구들 공개 게시판인 `thoughts`/
+  `comments`는 원래 의도대로 계속 공개로 둔다 — 그건 위장 방지가
+  아니라 애초에 "공개 게시판"이라 다른 얘기다).
+
+### 12-3. Firestore 보안 규칙 변경
+
+`users/{nickname}` 블록을 uid 기반 소유권으로 다시 단순화한다(1차
+초안의 `pwHash` 필드/create-update 분리 로직은 전부 폐기).
+
+```
+match /users/{nickname} {
+  allow read: if request.auth != null && request.auth.uid == resource.data.ownerUid;
+
+  allow create: if request.auth != null
+                && request.resource.data.ownerUid == request.auth.uid
+                && request.resource.data.keys().hasOnly(
+                     ['ownerUid','urls','topics','sectors','keywords','companies','lang','trendConfig','updatedAt'])
+                && request.resource.data.urls is list && request.resource.data.urls.size() <= 30
+                && request.resource.data.keywords is list && request.resource.data.keywords.size() <= 50
+                && request.resource.data.companies is list && request.resource.data.companies.size() <= 30
+                && request.resource.data.lang is string;
+
+  allow update: if request.auth != null
+                && request.auth.uid == resource.data.ownerUid
+                && request.resource.data.ownerUid == resource.data.ownerUid
+                && request.resource.data.keys().hasOnly(
+                     ['ownerUid','urls','topics','sectors','keywords','companies','lang','trendConfig','updatedAt'])
+                && request.resource.data.urls is list && request.resource.data.urls.size() <= 30
+                && request.resource.data.keywords is list && request.resource.data.keywords.size() <= 50
+                && request.resource.data.companies is list && request.resource.data.companies.size() <= 30
+                && request.resource.data.lang is string;
+
+  match /archive/{entryId} {
+    allow read: if request.auth != null && request.auth.uid == get(/databases/$(database)/documents/users/$(nickname)).data.ownerUid;
+    allow create: if request.auth != null
+                  && request.auth.uid == get(/databases/$(database)/documents/users/$(nickname)).data.ownerUid
+                  && request.resource.data.html is string && request.resource.data.html.size() <= 200000
+                  && request.resource.data.context is string && request.resource.data.context.size() <= 50000;
+    allow update: if false;
+    allow delete: if false;
+  }
+}
+```
+
+서브컬렉션 `archive`의 읽기·쓰기 규칙에서 `get(...)`으로 부모
+`users/{nickname}` 문서를 조회해 `ownerUid`를 대조하는 이유는,
+서브컬렉션 규칙은 자기 문서(`resource.data`)만 보고는 소유자를 알
+방법이 없어서다 — 부모 문서를 한 번 더 읽어와야 한다. Firestore
+규칙에서 `get()`은 별도 읽기 횟수로 과금되지만(콘솔 사용량에 반영),
+이 프로젝트 규모에서는 무시할 만한 수준이라고 판단했다.
+
+`thoughts`/`comments` 컬렉션 규칙(11번)은 이번 변경과 무관하다 —
+`authorUid`가 uid 기준이고, 이번에도 uid가 안 바뀌므로 손댈 필요가
+없다.
+
+### 12-4. 게이트 UI/흐름 변경
+
+닉네임 입력창 밑에 비밀번호 입력칸 하나만 추가한다(확인용 재입력
+칸은 넣지 않기로 했다 — 첫 클레임에서 오타가 나면 그 비밀번호를
+잊은 것과 똑같이 취급되는데, 이건 이미 "비밀번호를 잊으면 새
+닉네임을 골라야 한다"는 트레이드오프로 받아들이기로 한 것과 같은
+카테고리의 실패라 재입력 칸으로 막을 만큼 크게 다른 문제가 아니라고
+판단했다 — 1차 초안보다 화면을 더 단순하게 유지하는 쪽을 택했다).
+
+`enterApp()`이 비동기로 바뀐다.
+
+```js
+async function enterApp() {
+  const v  = document.getElementById('gate-nickname').value.trim().replace(/\//g, '');
+  const pw = document.getElementById('gate-password').value;
+  if (!v || pw.length < 4) return;
+  if (!auth.currentUser) { showGateError('로그인 준비 중이에요. 잠시 후 다시 시도해주세요.'); return; }
+  const email = v + '@lexbrief.local';
+  let claimed = false;
+
+  try {
+    await linkWithCredential(auth.currentUser, EmailAuthProvider.credential(email, pw));
+    claimed = true; // 새 닉네임 클레임 성공 — uid는 그대로, 프로필 문서가 아직 없다
+  } catch (e) {
+    // already-in-use: 다른 uid가 이미 이 닉네임을 가짐. provider-already-linked:
+    // 이 브라우저가 새로고침 전에 이미 그 닉네임으로 로그인돼 있던 경우(12-4 하단 참고).
+    // 두 경우 모두 "로그인 시도로 전환"이 맞는 처리다.
+    if (['auth/email-already-in-use', 'auth/credential-already-in-use', 'auth/provider-already-linked'].includes(e.code)) {
+      try {
+        await signInWithEmailAndPassword(auth, email, pw);
+        // 기존 닉네임 로그인 성공 — uid가 그 계정의 uid로 전환된다
+      } catch (e2) {
+        showGateError('비밀번호가 틀렸어요.');
+        return;
+      }
+    } else {
+      showGateError('로그인에 실패했어요: ' + e.message);
+      return;
+    }
+  }
+
+  nickname = v;
+  try { localStorage.setItem(NICK_KEY, nickname); } catch {}
+  document.getElementById('start-gate').classList.add('hidden');
+  document.getElementById('app-root').style.display = 'flex';
+  if (!feedLoaded) initThoughtsFeed();
+  if (claimed) {
+    syncUserProfile(); // 프로필 문서를 지금 만들어 둔다 — Settings를 한 번도
+                        // 안 건드리고 나가도 archive 저장(12-3의 get() 검증)이
+                        // 항상 성립하도록. 클레임 케이스에서만 호출한다.
+  } else {
+    loadUserProfile(nickname); // 로그인 케이스만 — 저장된 진짜 값을 끌어와서
+                                // 지금 브라우저의 로컬 기본값을 덮어쓴다
+  }
+  loadArchiveFromCloud(nickname);
+}
+```
+
+로그인(기존 닉네임) 케이스에서 `syncUserProfile()`을 호출하지 않고
+`loadUserProfile()`만 호출하는 순서가 중요하다 — 반대로 하면 이
+브라우저의 로컬 기본값(아직 진짜 설정을 못 받아온 상태)이 클라우드에
+저장된 진짜 값을 덮어써 버리는 사고가 난다. plan-verify 중에 이
+순서 실수를 잡아서 바로잡았다.
+
+`onAuthStateChanged`(11번에서 이미 만든 리스너)가 `linkWithCredential`/
+`signInWithEmailAndPassword` 양쪽 모두에서 자동으로 다시 발화해서
+`myUid`를 최신 값으로 갱신해 준다 — 이 부분은 이미 있는 코드라 손댈
+필요가 없다.
+
+**모듈 스크립트 최상단의 `signInAnonymously(auth)` 호출도 조건부로
+바꿔야 한다** — 지금은 페이지가 열릴 때마다 무조건 호출하는데, 이미
+영구 계정(예: "Alice")으로 로그인했던 브라우저가 새로고침됐을 때
+이 무조건 호출이 그 영구 세션을 밀어내고 새 익명 세션으로 덮어써
+버릴 위험이 있다(Firebase Auth는 브라우저 재방문 시 이전 세션을
+IndexedDB에서 복원하는데, 그 복원이 끝나기 전에 `signInAnonymously`
+가 먼저 실행되면 복원된 세션과 충돌한다). `onAuthStateChanged`의
+첫 콜백에서 `auth.currentUser`가 이미 있는지 확인한 뒤에만
+`signInAnonymously`를 호출하도록 고친다.
+
+```js
+let authInitDone = false;
+onAuthStateChanged(auth, user => {
+  if (!authInitDone) {
+    authInitDone = true;
+    if (!user) signInAnonymously(auth).catch(() => setComposeEnabled(false, '로그인에 실패했어요. 잠시 후 새로고침해 주세요.'));
+  }
+  if (!user) return;
+  myUid = user.uid;
+  setComposeEnabled(true);
+  if (feedLoaded) initThoughtsFeed();
+});
+```
+
+`syncUserProfile()`(4-4)은 매 저장마다 `ownerUid: myUid`를 같이
+실어 보내도록 한 줄 추가한다(생성 시점엔 자기 uid를 써서 소유권을
+못박고, 이후 매 update마다 규칙이 `request.auth.uid ==
+resource.data.ownerUid`로 대조하므로 이 필드가 항상 필요하다).
+비밀번호는 이전과 마찬가지로 로컬스토리지에 저장하지 않는다 — 매번
+다시 입력해야 하지만 Firebase Auth 세션 자체는 브라우저에 안전하게
+유지되므로(IndexedDB), 같은 브라우저로 재방문 시에는 재로그인 절차
+없이 이미 로그인된 상태로 남아있을 가능성이 높다(11번에서 익명 세션이
+새로고침 후에도 유지됐던 것과 같은 이유). 다만 게이트 자체는 지금
+설계대로 "매번 뜨고 시작하기를 눌러야" 하는 흐름을 유지하므로, 실제로는
+매번 비밀번호를 다시 물어보게 된다 — 이 부분은 요청하신 "닉네임을
+넣어야 시작하기가 눌리게" 원래 취지와 일치하는 선택이라고 보고
+그대로 뒀다.
+
+### 12-5. 사용자 액션 — Firebase 콘솔 설정 + 기존 데이터 정리
+
+- Firebase 콘솔 → Authentication → Sign-in method → **Email/Password**
+  공급자 활성화(지금까지는 Anonymous만 켜져 있었다. 새로 하나 더
+  켜야 한다).
+- 갱신된 `firestore.rules` 재게시.
+- 기존 닉네임 정리 — 사용자가 "기존 닉네임을 모두 삭제"로 확정했다.
+  지금 Firestore의 `users/*`, `thoughts/*`(와 각 서브컬렉션)는 이번
+  세션에서 기능 검증하며 만든 테스트 데이터뿐이다(`ZZZ_TestOnly_Phase2`,
+  `Phase2Tester`, `OwnerFlow` 등). 이 정리는 제가 클라이언트 코드로
+  대신 할 수 없다 — 지금까지의 모든 규칙 버전에 `users`/`archive`
+  삭제를 허용하는 조항이 없었고, `thoughts`도 작성자 본인 uid만
+  삭제 가능한데 그 익명 세션들은 이미 브라우저를 닫아 사라진 상태라
+  저도 지울 방법이 없다(관리자 자격 증명도 없다). Firestore
+  콘솔에서 `thoughts`/`users` 컬렉션 오른쪽 "⋮" 메뉴 → "컬렉션 삭제"
+  로 몇 번의 클릭이면 끝난다.
+
+### 12-6. 구현 단계
+
+1. 모듈 스크립트 import에 `EmailAuthProvider`, `linkWithCredential`,
+   `signInWithEmailAndPassword` 추가.
+2. 게이트 마크업에 비밀번호 입력칸 하나 추가, 에러 메시지 표시 영역
+   추가.
+3. `enterApp()`을 12-4의 비동기 link→fallback sign-in 흐름으로
+   재작성.
+4. `syncUserProfile()`에 `ownerUid: myUid` 필드 추가.
+5. `firestore.rules`에 12-3 규칙 반영.
+6. 사용자 액션(12-5): Email/Password 공급자 활성화, 규칙 재게시,
+   기존 컬렉션 삭제.
+
+### 12-7. 테스트 plan
+
+- 존재하지 않는 새 닉네임 + 비밀번호로 시작 → 성공적으로 앱에 들어가고,
+  Firestore에 `users/{nickname}` 문서가 `ownerUid`와 함께 생성되는지.
+- 같은 브라우저에서 새로고침 후 같은 닉네임+같은 비밀번호로 재입력 →
+  정상적으로 들어가지는지(uid가 안 바뀌었는지 콘솔에서 확인).
+- 완전히 다른 브라우저 세션에서 같은 닉네임 + **틀린** 비밀번호 →
+  "비밀번호가 틀렸어요"로 막히고 앱에 못 들어가는지.
+- 완전히 다른 브라우저 세션에서 같은 닉네임 + **맞는** 비밀번호 →
+  들어가지고, Sources & Topics 설정이 정상적으로 동기화되는지(4번
+  기능이 이번 변경 이후에도 여전히 되는지 회귀 확인).
+- 개발자 도구에서 로그인 안 한(또는 다른 계정으로 로그인한) 상태로
+  남의 `users/{nickname}` 문서를 직접 `getDoc`으로 읽어보기 시도 →
+  `permission-denied`로 거부되는지(12-2에서 얘기한 "읽기 프라이버시
+  개선"이 실제로 규칙에 반영됐는지 확인하는 핵심 테스트).
+- **Settings를 전혀 안 건드리고 바로 브리핑만 생성** — 새 닉네임을
+  클레임한 직후, Sources & Topics는 한 번도 안 열고 곧장 Daily
+  Briefing에서 브리핑을 하나 만들었을 때 `users/{nickname}` 문서가
+  이미 만들어져 있어서(클레임 시점의 명시적 `syncUserProfile()` 호출
+  덕분에) archive 저장이 실제로 성공하는지 확인.
+- **같은 브라우저에서 새로고침 후 재확인** — 한 번 클레임에 성공한
+  브라우저를 새로고침했을 때, `signInAnonymously` 가드 덕분에 영구
+  계정 세션이 안 밀려나는지(개발자 도구에서 uid가 새로고침 전후로
+  같은지 직접 대조), 게이트에 같은 닉네임+비밀번호를 다시 입력해도
+  `auth/provider-already-linked` 같은 에러 없이 매끄럽게 들어가지는지.
+
+### 12-8. Self-review
+
+베스트인지 — plan-verify 과정에서 처음 접근(커스텀 해시 + Firestore
+규칙 직접 비교)보다 Firebase Auth의 계정 연결 기능을 쓰는 쪽이 uid
+안정성, 보안, 구현 단순성 세 가지를 동시에 만족시킨다는 걸 확인하고
+전면 교체했다. 지금 시점에서는 이게 최선이라고 판단한다.
+
+빠진 게 있는지 — 이 재설계 자체를 검증하다가 두 가지를 더 잡았다.
+하나는 클레임 직후 Settings를 한 번도 안 건드리면 `users/{nickname}`
+문서가 아예 안 생겨서 archive 저장(12-3의 `get()` 검증)이 조용히
+실패하는 문제였고(클레임 케이스에서 `syncUserProfile()`을 명시적으로
+호출하도록 고쳤다), 다른 하나는 로그인 케이스에서 순서를 잘못
+잡으면 이 브라우저의 로컬 기본값이 클라우드의 진짜 저장값을 덮어써
+버리는 문제였다(로그인 케이스는 `syncUserProfile()`이 아니라
+`loadUserProfile()`만 호출하도록 분리했다). 세 번째로, 페이지
+새로고침 시 무조건 `signInAnonymously`를 부르던 기존 코드가 영구
+계정 세션을 밀어낼 수 있어서 조건부 호출로 바꿨다. 비밀번호
+재설정(찾기) 기능은 여전히 없다(12-4에서 근거 설명, 1차 초안과 같은
+트레이드오프 유지) — Firebase의 진짜 비밀번호 재설정 이메일 기능
+(`sendPasswordResetEmail`)을 쓰려면 실제 이메일 주소를 받아야
+하는데, 그러면 "닉네임만으로 시작"하는 지금 앱의 핵심 UX가 깨지므로
+범위에 넣지 않았다.
+
+오버한 게 있는지 — 확인용 비밀번호 재입력 칸을 1차 초안에서는
+넣었다가 이번에 뺐다 — 화면을 단순하게 유지하는 쪽이 이 앱의 기존
+톤(닉네임 하나로 바로 시작)과 더 맞는다고 재판단했다. `archive`
+서브컬렉션 규칙에 `get()` 호출을 추가한 것도 최소한의 필요(소유자
+대조)를 위한 것이지 그 이상은 아니다.
+
+### 12-9. 사용자 결정 필요 항목
+
+없음 — 마이그레이션 정책과 기존 데이터 처리는 이미 답변받았고, 이번
+재설계(Firebase Auth 계정 연결 방식)는 사용자가 원래 요청한 "중복
+안 되게"를 더 잘 만족시키는 기술적 선택이라 별도로 여쭤볼 지점은
+없다고 판단했다. 사용자가 해야 하는 액션은 12-5에 정리된 세 가지
+(Email/Password 공급자 활성화, 규칙 재게시, 기존 컬렉션 삭제)다.
+
