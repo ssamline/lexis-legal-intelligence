@@ -1675,7 +1675,7 @@ document.addEventListener('DOMContentLoaded', () => {
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
 import {
   getFirestore, collection, addDoc, getDocs, getDoc, setDoc, doc, updateDoc, deleteDoc, increment,
-  query, orderBy, limit, startAfter, serverTimestamp
+  query, orderBy, limit, startAfter, serverTimestamp, onSnapshot
 } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
 import {
   getAuth, signInAnonymously, onAuthStateChanged, signOut,
@@ -2602,6 +2602,38 @@ function escHtml(s) {
   return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+// Wipes the browser-wide Sources & Topics cache (localStorage + in-memory S)
+// back to hard defaults. Called right before a browser that's already linked
+// to a DIFFERENT nickname claims/signs into a new one — without this, the
+// new nickname's first synced profile would silently inherit whatever the
+// previous nickname on this browser had set (see plan_fix_settings_isolation
+// find-cause). Language is deliberately left untouched — it's a browser
+// display preference, not per-user private data (see plan section 6).
+function resetLocalSettingsToDefaults() {
+  window.S.urls      = ['law360.com', 'courthousenews.com'];
+  window.S.topics    = { ip: true, reg: true, lit: true, corp: true };
+  window.S.sectors   = {};
+  window.S.keywords  = [];
+  window.S.companies = [];
+  window.ALARM.times = ['08:00'];
+  try {
+    localStorage.removeItem('lexbrief_urls');
+    localStorage.removeItem('lexbrief_topics');
+    localStorage.removeItem('lexbrief_sectors');
+    localStorage.removeItem('lexbrief_keywords');
+    localStorage.removeItem('lexbrief_companies');
+    localStorage.removeItem('lb_alarm');
+  } catch {}
+  document.getElementById('url-items').innerHTML = window.S.urls.map(v =>
+    `<div class="url-item"><span>${escHtml(v)}</span><button class="url-del" onclick="removeUrl(this,'${escHtml(v)}')">×</button></div>`
+  ).join('');
+  document.querySelectorAll('.topic-pill[data-topic]').forEach(el => el.classList.remove('off'));
+  document.querySelectorAll('.topic-pill[data-sector]').forEach(el => el.classList.add('off'));
+  window.renderKwChips();
+  window.renderCoChips();
+  window.renderAlarmTimes();
+}
+
 function timeAgo(ts) {
   if (!ts) return '';
   const ms  = Date.now() - ts.toMillis();
@@ -2649,6 +2681,7 @@ async function enterApp() {
     try {
       await signOut(auth);
       await signInAnonymously(auth);
+      resetLocalSettingsToDefaults();
     } catch (e) {
       showGateError(t('gate.signin_failed', {msg: e.message}));
       btn.disabled = false;
@@ -2747,6 +2780,31 @@ function thoughtCardHtml(id, th) {
     </div>`;
 }
 
+// Field-level patch for an already-rendered card, driven by the thoughts
+// onSnapshot listener's 'modified' docChanges. Deliberately does NOT
+// re-render the whole card (unlike thoughtCardHtml) so that an open comment
+// panel on this card — or on any other card — never collapses just because
+// something about this thought changed.
+function patchThoughtCard(id, th) {
+  const prev = thoughtsCache[id];
+  thoughtsCache[id] = th;
+  const card = document.getElementById('thought-' + id);
+  if (!card) return; // scrolled past the live window, not currently rendered
+
+  const textEl = document.getElementById('thought-text-' + id);
+  if (textEl && !textEl.querySelector('textarea')) textEl.textContent = th.text; // skip while owner is mid-edit
+
+  if (th.editedAt && !prev?.editedAt) {
+    const timeEl = card.querySelector('.thought-time');
+    if (timeEl && !timeEl.querySelector('.thought-edited')) {
+      timeEl.insertAdjacentHTML('beforeend', ` <span class="thought-edited">${t('sharing.edited')}</span>`);
+    }
+  }
+
+  const toggle = document.getElementById('thought-ctoggle-' + id);
+  if (toggle) toggle.textContent = t('sharing.comment_count', {n: th.commentCount || 0, s: (th.commentCount === 1 ? '' : 's')});
+}
+
 function commentItemHtml(thoughtId, commentId, c) {
   commentsCache[thoughtId + ':' + commentId] = c;
   const mine      = !!(myUid && c.authorUid && c.authorUid === myUid);
@@ -2787,13 +2845,10 @@ async function saveThoughtEdit(id) {
   if (!text || !myUid) return;
   try {
     await updateDoc(doc(db, 'thoughts', id), { text, editedAt: serverTimestamp() });
-    thoughtsCache[id].text     = text;
-    thoughtsCache[id].editedAt = { toMillis: () => Date.now() };
+    // Exit edit mode immediately for the owner; the thoughts onSnapshot
+    // listener (added/modified/removed) handles the rest for everyone,
+    // including re-confirming this same text once the write echoes back.
     document.getElementById('thought-text-' + id).textContent = text;
-    const timeEl = document.querySelector('#thought-' + id + ' .thought-time');
-    if (timeEl && !timeEl.querySelector('.thought-edited')) {
-      timeEl.insertAdjacentHTML('beforeend', ` <span class="thought-edited">${t('sharing.edited')}</span>`);
-    }
   } catch (e) {
     alert(t('sharing.edit_failed', {msg: e.message}));
   }
@@ -2806,8 +2861,6 @@ async function deleteThought(id) {
   if (btn) btn.disabled = true;
   try {
     await deleteDoc(doc(db, 'thoughts', id));
-    delete thoughtsCache[id];
-    document.getElementById('thought-' + id)?.remove();
   } catch (e) {
     alert(t('sharing.delete_failed', {msg: e.message}));
     if (btn) btn.disabled = false;
@@ -2836,16 +2889,11 @@ async function saveCommentEdit(thoughtId, commentId) {
   const input = document.getElementById('comment-edit-input-' + commentId);
   const text  = input.value.trim();
   if (!text || !myUid) return;
-  const key = thoughtId + ':' + commentId;
   try {
     await updateDoc(doc(db, 'thoughts', thoughtId, 'comments', commentId), { text, editedAt: serverTimestamp() });
-    commentsCache[key].text     = text;
-    commentsCache[key].editedAt = { toMillis: () => Date.now() };
-    document.getElementById('comment-text-' + commentId).textContent = text;
-    const nickEl = document.querySelector('#comment-' + commentId + ' .comment-nick');
-    if (nickEl && !nickEl.querySelector('.thought-edited')) {
-      nickEl.insertAdjacentHTML('beforeend', ` <span class="thought-edited">${t('sharing.edited')}</span>`);
-    }
+    // The comment panel's onSnapshot listener re-renders the whole thread
+    // right after this write, which both shows the new text and exits edit
+    // mode — no manual DOM patch needed here.
   } catch (e) {
     alert(t('sharing.edit_failed', {msg: e.message}));
   }
@@ -2863,38 +2911,59 @@ async function deleteComment(thoughtId, commentId) {
     if (btn) btn.disabled = false;
     return;
   }
-  delete commentsCache[thoughtId + ':' + commentId];
-  document.getElementById('comment-' + commentId)?.remove();
-  const toggle = document.getElementById('thought-ctoggle-' + thoughtId);
-  if (toggle) {
-    const n = Math.max(0, (parseInt(toggle.textContent.match(/\d+/)?.[0] || '0', 10)) - 1);
-    toggle.textContent = t('sharing.comment_count', {n, s: (n === 1 ? '' : 's')});
-  }
   try {
     await updateDoc(doc(db, 'thoughts', thoughtId), { commentCount: increment(-1) });
   } catch (e) {
-    // 부모 글이 그사이 삭제됐거나 네트워크 문제 — commentCount는 다음 전체 새로고침 때까지
+    // 부모 글이 그사이 삭제됐거나 네트워크 문제 — commentCount는 다음 변경 때까지
     // 약간 어긋날 수 있지만, 댓글 삭제 자체는 이미 성공했으니 조용히 무시한다.
   }
 }
 
-async function initThoughtsFeed() {
+let thoughtsListenerActive = false;
+function initThoughtsFeed() {
   feedLoaded = true;
+  // onAuthStateChanged (index.html:2535) calls this again whenever myUid
+  // changes, to refresh "mine" edit/delete buttons — that made sense for the
+  // old one-time getDocs() render, but a live onSnapshot listener must only
+  // ever be attached once, or every subsequent call stacks a duplicate
+  // listener. There's no reachable in-app path that changes myUid after the
+  // feed is already showing (no logout UI), so this guard is a safety net
+  // more than an active behavior change.
+  if (thoughtsListenerActive) return;
+  thoughtsListenerActive = true;
   const feedEl = document.getElementById('thought-feed');
   feedEl.innerHTML = `<div class="hint">${t('common.loading')}</div>`;
-  try {
-    const q    = query(collection(db, 'thoughts'), orderBy('createdAt', 'desc'), limit(50));
-    const snap = await getDocs(q);
+  const q = query(collection(db, 'thoughts'), orderBy('createdAt', 'desc'), limit(50));
+  onSnapshot(q, snap => {
     if (snap.empty) {
       feedEl.innerHTML = `<div class="hint">${t('sharing.no_thoughts')}</div>`;
+      lastDoc = null;
+      document.getElementById('thought-more-btn').style.display = 'none';
       return;
     }
     lastDoc = snap.docs[snap.docs.length - 1];
-    feedEl.innerHTML = snap.docs.map(d => thoughtCardHtml(d.id, d.data())).join('');
     document.getElementById('thought-more-btn').style.display = snap.docs.length < 50 ? 'none' : 'inline-flex';
-  } catch (e) {
+
+    snap.docChanges().forEach(change => {
+      const id = change.doc.id;
+      if (change.type === 'added') {
+        if (document.getElementById('thought-' + id)) return; // already rendered
+        const emptyHint = feedEl.querySelector('.hint');
+        if (emptyHint) emptyHint.remove();
+        const html     = thoughtCardHtml(id, change.doc.data());
+        const beforeEl = change.newIndex < feedEl.children.length ? feedEl.children[change.newIndex] : null;
+        if (beforeEl) beforeEl.insertAdjacentHTML('beforebegin', html);
+        else feedEl.insertAdjacentHTML('beforeend', html);
+      } else if (change.type === 'modified') {
+        patchThoughtCard(id, change.doc.data());
+      } else if (change.type === 'removed') {
+        delete thoughtsCache[id];
+        document.getElementById('thought-' + id)?.remove();
+      }
+    });
+  }, e => {
     feedEl.innerHTML = `<div class="hint">${t('sharing.load_failed')}</div>`;
-  }
+  });
 }
 
 async function loadMoreThoughts() {
@@ -2920,13 +2989,12 @@ async function postThought() {
   const btn = document.getElementById('thought-post-btn');
   btn.disabled = true;
   try {
-    const docRef = await addDoc(collection(db, 'thoughts'), {
+    await addDoc(collection(db, 'thoughts'), {
       nickname, text, createdAt: serverTimestamp(), commentCount: 0, authorUid: myUid
     });
     input.value = '';
-    const feedEl = document.getElementById('thought-feed');
-    if (feedEl.querySelector('.hint')) feedEl.innerHTML = '';
-    feedEl.insertAdjacentHTML('afterbegin', thoughtCardHtml(docRef.id, { nickname, text, authorUid: myUid, createdAt: { toMillis: () => Date.now() }, commentCount: 0 }));
+    // The thoughts onSnapshot listener's 'added' handler renders the new
+    // card for everyone, including the poster — no manual insert needed.
   } catch (e) {
     alert(t('sharing.post_failed', {msg: e.message}));
   } finally {
@@ -2935,22 +3003,25 @@ async function postThought() {
 }
 
 // ── Comments ─────────────────────────────────────────────────────────────────
-async function toggleComments(thoughtId) {
+const commentListeners = {};
+
+function toggleComments(thoughtId) {
   const box  = document.getElementById('thought-comments-' + thoughtId);
   const open = box.classList.toggle('open');
-  if (open && !box.dataset.loaded) {
-    box.dataset.loaded = '1';
+  if (open && !commentListeners[thoughtId]) {
     const listEl = document.getElementById('thought-clist-' + thoughtId);
     listEl.innerHTML = `<div class="hint" style="padding:.5rem 0">${t('common.loading')}</div>`;
-    try {
-      const q    = query(collection(db, 'thoughts', thoughtId, 'comments'), orderBy('createdAt', 'asc'));
-      const snap = await getDocs(q);
+    const q = query(collection(db, 'thoughts', thoughtId, 'comments'), orderBy('createdAt', 'asc'));
+    commentListeners[thoughtId] = onSnapshot(q, snap => {
       listEl.innerHTML = snap.empty
         ? ''
         : snap.docs.map(d => commentItemHtml(thoughtId, d.id, d.data())).join('');
-    } catch (e) {
+    }, e => {
       listEl.innerHTML = `<div class="hint" style="padding:.5rem 0">${t('sharing.comments_load_failed')}</div>`;
-    }
+    });
+  } else if (!open && commentListeners[thoughtId]) {
+    commentListeners[thoughtId]();
+    delete commentListeners[thoughtId];
   }
 }
 
@@ -2959,16 +3030,14 @@ async function postComment(thoughtId) {
   const text  = input.value.trim();
   if (!text || !nickname || !myUid) return;
   try {
-    const commentRef = await addDoc(collection(db, 'thoughts', thoughtId, 'comments'), {
+    await addDoc(collection(db, 'thoughts', thoughtId, 'comments'), {
       nickname, text, createdAt: serverTimestamp(), authorUid: myUid
     });
     await updateDoc(doc(db, 'thoughts', thoughtId), { commentCount: increment(1) });
     input.value = '';
-    const listEl = document.getElementById('thought-clist-' + thoughtId);
-    listEl.insertAdjacentHTML('beforeend', commentItemHtml(thoughtId, commentRef.id, { nickname, text, authorUid: myUid }));
-    const toggle = document.getElementById('thought-ctoggle-' + thoughtId);
-    const n = (parseInt(toggle.textContent.match(/\d+/)?.[0] || '0', 10)) + 1;
-    toggle.textContent = t('sharing.comment_count', {n, s: (n === 1 ? '' : 's')});
+    // The open comment panel's onSnapshot listener renders the new comment,
+    // and the thoughts listener's 'modified' handler (via patchThoughtCard)
+    // bumps the comment-count badge once the commentCount write echoes back.
   } catch (e) {
     alert(t('sharing.comment_failed', {msg: e.message}));
   }
