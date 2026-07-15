@@ -1678,7 +1678,7 @@ import {
   query, orderBy, limit, startAfter, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
 import {
-  getAuth, signInAnonymously, onAuthStateChanged,
+  getAuth, signInAnonymously, onAuthStateChanged, signOut,
   EmailAuthProvider, linkWithCredential, signInWithEmailAndPassword
 } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
 
@@ -2636,8 +2636,27 @@ async function enterApp() {
   const btn = document.getElementById('gate-enter-btn');
   btn.disabled = true;
   const email = v + '@lexbrief.local';
-  let claimed = false;
 
+  // Firebase Auth session persists across reloads. If this browser is already
+  // permanently linked to a DIFFERENT nickname's account, linkWithCredential()
+  // below always fails with 'provider-already-linked' no matter what's typed,
+  // and the old fallback (signInWithEmailAndPassword against the newly typed
+  // nickname) always failed too — surfacing a misleading "Wrong password" for
+  // an account that was never actually attempted. Reset to a fresh anonymous
+  // session first so the typed nickname gets a clean shot.
+  const linkedEmail = auth.currentUser.providerData.find(p => p.providerId === 'password')?.email;
+  if (linkedEmail && linkedEmail !== email) {
+    try {
+      await signOut(auth);
+      await signInAnonymously(auth);
+    } catch (e) {
+      showGateError(t('gate.signin_failed', {msg: e.message}));
+      btn.disabled = false;
+      return;
+    }
+  }
+
+  let claimed = false;
   try {
     await linkWithCredential(auth.currentUser, EmailAuthProvider.credential(email, pw));
     claimed = true; // new nickname claimed — uid unchanged, profile doc doesn't exist yet
