@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Research Reports — LexBrief</title>
+<link rel="stylesheet" href="/research/report-style.css">
+<style>
+  .nav{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
+  .nav a.back{font-weight:600}
+  .report-list{display:flex;flex-direction:column;gap:.75rem;margin-top:1rem}
+  .report-item{display:flex;flex-direction:column;gap:.2rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:8px;background:var(--code-bg)}
+  .report-item .title{font-weight:600;font-size:1.05rem}
+  .report-item .desc{color:var(--text-muted);font-size:.9rem}
+  .empty-state{padding:2.5rem 1.5rem;text-align:center;color:var(--text-muted);border:1px dashed var(--border);border-radius:10px;margin-top:1rem}
+</style>
+</head>
+<body>
+  <div class="nav">
+    <a class="back" href="/">← LexBrief 홈</a>
+  </div>
+
+  <h1>Research Reports</h1>
+  <p class="meta">개인 리서치 리포트 모음</p>
+
+  <div class="report-list" id="report-list">
+    <div class="empty-state">아직 등록된 리포트가 없습니다.</div>
+  </div>
+
+  <footer>이 목록은 새 리포트가 배포될 때마다 갱신됩니다.</footer>
+</body>
+</html>

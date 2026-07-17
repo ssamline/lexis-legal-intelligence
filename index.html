@@ -30,9 +30,19 @@ body{font-family:Georgia,serif;background:var(--surface);color:var(--ink);min-he
 
 /* ── Nav ── */
 .nav{display:flex;background:var(--white);border-bottom:1px solid var(--rule);padding:0 1.5rem}
-.nav-btn{font-family:Arial,sans-serif;font-size:13px;font-weight:500;color:var(--ink3);padding:14px 18px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;letter-spacing:.02em;display:flex;align-items:center;gap:6px;transition:color .15s;white-space:nowrap}
+.nav-btn{font-family:Arial,sans-serif;font-size:13px;font-weight:500;color:var(--ink3);padding:14px 18px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;letter-spacing:.02em;display:flex;align-items:center;gap:6px;transition:color .15s;white-space:nowrap;text-decoration:none}
 .nav-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
 .nav-btn:hover:not(.active){color:var(--ink2)}
+
+@media (max-width:600px){
+  .nav{padding:0 .5rem;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .nav::-webkit-scrollbar{display:none}
+  .nav-btn{padding:12px 10px;font-size:12px;gap:4px}
+}
+@media (max-width:420px){
+  .nav-btn span{display:none}
+  .nav-btn{padding:12px 14px;font-size:16px}
+}
 
 /* ── Layout ── */
 .main{flex:1;padding:1.5rem;display:flex;flex-direction:column;gap:1.25rem}
@@ -331,6 +341,7 @@ body{font-family:Georgia,serif;background:var(--surface);color:var(--ink);min-he
     <button class="nav-btn"        id="nav-thoughts"  onclick="showPanel('thoughts',this)">🛠 <span data-i18n="nav.personal">Personal Tool</span></button>
     <button class="nav-btn"        id="nav-sharing"   onclick="showPanel('sharing',this)" >💬 <span data-i18n="nav.sharing">Sharing Thoughts</span></button>
     <button class="nav-btn"        id="nav-settings"  onclick="showPanel('settings',this)">⚙ <span data-i18n="nav.settings">Sources &amp; Topics</span></button>
+    <a   class="nav-btn"        id="nav-research"  href="/research/index.html">🔎 <span data-i18n="nav.research">Research</span></a>
   </div>
 
   <div class="main">
@@ -1630,6 +1641,7 @@ const I18N = {
     'nav.personal': 'Personal Tool',
     'nav.sharing': 'Sharing Thoughts',
     'nav.settings': 'Sources & Topics',
+    'nav.research': 'Research',
     'brief.today_tab': 'Today',
     'brief.archive_tab': 'Archive',
     'brief.title': 'Daily Briefing',
@@ -1750,6 +1762,7 @@ const I18N = {
     'nav.personal': '개인 도구',
     'nav.sharing': '공유 의견',
     'nav.settings': '소스 & 토픽',
+    'nav.research': '리서치',
     'brief.today_tab': '오늘',
     'brief.archive_tab': '아카이브',
     'brief.title': '데일리 브리핑',
@@ -1870,6 +1883,7 @@ const I18N = {
     'nav.personal': 'Herramienta Personal',
     'nav.sharing': 'Opiniones Compartidas',
     'nav.settings': 'Fuentes y Temas',
+    'nav.research': 'Investigación',
     'brief.today_tab': 'Hoy',
     'brief.archive_tab': 'Archivo',
     'brief.title': 'Resumen Diario',
@@ -1990,6 +2004,7 @@ const I18N = {
     'nav.personal': 'Outil Personnel',
     'nav.sharing': 'Avis Partagés',
     'nav.settings': 'Sources et Sujets',
+    'nav.research': 'Recherche',
     'brief.today_tab': "Aujourd'hui",
     'brief.archive_tab': 'Archives',
     'brief.title': 'Résumé Quotidien',
@@ -2110,6 +2125,7 @@ const I18N = {
     'nav.personal': '个人工具',
     'nav.sharing': '分享观点',
     'nav.settings': '来源与主题',
+    'nav.research': '研究',
     'brief.today_tab': '今日',
     'brief.archive_tab': '归档',
     'brief.title': '每日简报',
@@ -2230,6 +2246,7 @@ const I18N = {
     'nav.personal': 'パーソナルツール',
     'nav.sharing': '意見共有',
     'nav.settings': 'ソース & トピック',
+    'nav.research': 'リサーチ',
     'brief.today_tab': '今日',
     'brief.archive_tab': 'アーカイブ',
     'brief.title': 'デイリーブリーフィング',
