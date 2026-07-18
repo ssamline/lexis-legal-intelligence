@@ -6,23 +6,27 @@ app.set('trust proxy', true); // Render sits behind a proxy — needed for req.i
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname)));
 
-// ── Simple in-memory rate limiter (per IP) — no new dependency needed at this traffic scale ──
-const RATE_LIMIT = { windowMs: 60 * 60 * 1000, max: 8 }; // 8 requests / hour / IP
-const rateHits = new Map(); // ip -> { count, resetAt }
-function checkRateLimit(ip) {
+// ── Simple in-memory rate limiter (per IP, per feature bucket) — no new
+// dependency needed at this traffic scale. Each feature gets its own budget
+// (e.g. Daily Briefing is used far more often per session than Compare
+// Companies or Story Research, so it needs a much more generous limit).
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+const rateHits = new Map(); // `${bucket}:${ip}` -> { count, resetAt }
+function checkRateLimit(ip, bucket, max) {
   const now = Date.now();
-  const entry = rateHits.get(ip);
+  const key = `${bucket}:${ip}`;
+  const entry = rateHits.get(key);
   if (!entry || now > entry.resetAt) {
-    rateHits.set(ip, { count: 1, resetAt: now + RATE_LIMIT.windowMs });
+    rateHits.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
     return true;
   }
-  if (entry.count >= RATE_LIMIT.max) return false;
+  if (entry.count >= max) return false;
   entry.count++;
   return true;
 }
 setInterval(() => {
   const now = Date.now();
-  for (const [ip, entry] of rateHits) if (now > entry.resetAt) rateHits.delete(ip);
+  for (const [key, entry] of rateHits) if (now > entry.resetAt) rateHits.delete(key);
 }, 10 * 60 * 1000);
 
 // Common RSS/Atom feed paths to try for any domain
@@ -320,8 +324,92 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
+const BRIEFING_TOPIC_LABELS = { ip: 'IP & Technology', reg: 'Regulatory & Compliance', lit: 'Litigation & Courts', corp: 'Corporate & M&A' };
+
+// Server-fixed prompt for the Daily Briefing — moved off the open /api/chat
+// proxy specifically because it now optionally uses paid web_search/web_fetch
+// tools, and a client-controlled proxy would let anyone trigger those at will.
+// See CLAUDE.md and docs/plans/plan_global_legal_research.md for the design.
+app.post('/api/generate-briefing', async (req, res) => {
+  if (!checkRateLimit(req.ip, 'generate-briefing', 30)) {
+    return res.status(429).json({ error: 'Too many briefing requests. Please try again later.' });
+  }
+
+  const {
+    activeTopics = [], keywords = [], sectors = [], companies = [],
+    articles = [], failedSources = []
+  } = req.body;
+  if (!activeTopics.length) return res.status(400).json({ error: 'Enable at least one Legal Topic.' });
+
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not set.' });
+
+  const topicNames = activeTopics.map(t => BRIEFING_TOPIC_LABELS[t] || t).join(', ');
+  const kwExtra     = keywords.length ? ` Emphasize: ${keywords.join(', ')}.` : '';
+  const today       = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  const hasCompanies = companies.length > 0;
+
+  let bizInstr = ` For each section include a "biz" array of 1-2 opportunities and 1-2 risks directly tied to that section's legal developments.`;
+  if (sectors.length)   bizInstr += ` Business sectors: ${sectors.join(', ')}.`;
+  if (companies.length) bizInstr += ` Tracked companies: ${companies.join(', ')}.`;
+  if (hasCompanies) {
+    bizInstr += ` For opportunity/risk items tied to a tracked company: first determine (use web_search if needed) which countries that company primarily operates in or is listed in — do not assume it is US-only. For each relevant jurisdiction, prioritize official, primary sources over blogs or unverified news — for example SEC EDGAR and CourtListener for US companies, EUR-Lex and European Commission announcements for the EU, Companies House and the FCA register for the UK, EDINET for Japan, DART for South Korea, or the equivalent official regulator, court, or government gazette for other countries. Also look for what the company has recently told investors — 10-K risk factors, annual report, earnings call commentary, investor day materials — and explicitly compare that against current legal/regulatory developments, calling out concrete gaps or alignments rather than generic statements. Every company-related biz item must be grounded in a specific finding; if you cannot find a credible source, say so rather than inventing one. Add a "source" field (a real URL, or "" if no external source was used) to each biz item.`;
+  } else {
+    bizInstr += ` Each biz item: {type:"opportunity"|"risk",company:"name or empty",sector:"name or empty",text:"1-2 sentences"}.`;
+  }
+
+  let articleCtx = '';
+  if (articles.length) {
+    articleCtx = '\n\nRecent articles fetched from the user\'s selected sources:\n' +
+      articles.map((a, i) => `${i+1}. (${a.domain}) ${a.title}`).join('\n');
+  }
+  const hasArticles = articles.length > 0;
+
+  const foreignInstr = ` Additionally, inspect the article list above by their (domain) prefix — if any domain's article titles are written in a language other than English, identify each such distinct language. For each one, write a 3-5 sentence summary paragraph, written ENTIRELY in that language, covering only the legal and business developments implied by that domain's titles, scoped to topics: ${topicNames}${sectors.length ? ' and business sectors: ' + sectors.join(', ') : ''}. Add one entry per distinct non-English language to a "foreignSummaries" array: {"language":"<language name in English, e.g. French>","text":"<summary written in that language>"}. If every source domain's titles are in English, return "foreignSummaries": [].`;
+  const failedSourcesInstr = failedSources.length
+    ? ` Additionally, for each of these source domains that returned no articles today — ${failedSources.join(', ')} — suggest ONE real, well-known alternative English-language legal or business-regulatory news site (one likely to have a working public RSS feed) that covers similar ground. Add one entry per failed domain to a "sourceAlternatives" array: {"failedDomain":"...","suggestion":"suggested-domain.com","reason":"one short sentence why"}.`
+    : '';
+
+  const system = `You are a senior legal news analyst. Generate a concise daily legal briefing for ${today}. Topics: ${topicNames}.${kwExtra}${bizInstr}
+${hasArticles ? articleCtx + `\n\nUsing ONLY the articles listed above, select and summarize the ones most strategically significant for the selected topics${sectors.length ? ' and business sectors' : ''} — prioritize by likely business/legal impact (deal risk, regulatory exposure, competitive positioning, revenue impact), never by which source domain or language an article happens to come from. Write 2-3 bullet summaries per section from that selection. Each bullet MUST reference one article by its number using "ref": <integer>. Do NOT copy URLs into the JSON.${foreignInstr}` : 'No live articles available — generate a plausible briefing based on current legal trends. Omit "ref" from bullets.'}${failedSourcesInstr}
+Reply ONLY in valid JSON, no markdown fences:
+{"sections":[{"topic":"ip","bullets":[{"text":"one-sentence summary of the article","ref":1}],"prose":"...","biz":[{"type":"opportunity","company":"","sector":"","text":"..."}]}],"foreignSummaries":[{"language":"French","text":"..."}],"sourceAlternatives":[{"failedDomain":"...","suggestion":"...","reason":"..."}]}
+Only include these topics: ${activeTopics.join(',')}.`;
+
+  const body = {
+    model: hasCompanies ? 'claude-sonnet-5' : 'claude-haiku-4-5-20251001',
+    max_tokens: hasCompanies ? 4000 : 2500,
+    temperature: 0,
+    system,
+    messages: [{ role: 'user', content: `Generate briefing. Topics:${activeTopics.join(',')}.` }]
+  };
+  if (hasCompanies) {
+    body.tools = [
+      { type: 'web_search_20260209', name: 'web_search', max_uses: 8 },
+      { type: 'web_fetch_20260209', name: 'web_fetch', max_uses: 8 }
+    ];
+  }
+
+  try {
+    const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(hasCompanies ? 60000 : 30000)
+    });
+    const data = await claudeRes.json();
+    res.status(claudeRes.status).json(data);
+  } catch (e) {
+    res.status(500).json({ error: { message: e.message } });
+  }
+});
+
 // Competitive legal analysis: SEC EDGAR + CourtListener + user sources
 app.post('/api/compare-companies', async (req, res) => {
+  if (!checkRateLimit(req.ip, 'compare-companies', 10)) {
+    return res.status(429).json({ error: 'Too many comparison requests. Please try again later.' });
+  }
+
   const { companies = [], urls = [], topics = {}, sectors = {} } = req.body;
   if (companies.length < 2) return res.status(400).json({ error: 'Need at least 2 companies to compare.' });
 
@@ -398,9 +486,19 @@ app.post('/api/compare-companies', async (req, res) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 2000,
+        model: 'claude-sonnet-5',
+        max_tokens: 4000,
+        tools: [
+          { type: 'web_search_20260209', name: 'web_search', max_uses: 8 },
+          { type: 'web_fetch_20260209', name: 'web_fetch', max_uses: 8 }
+        ],
         system: `You are a legal intelligence analyst specializing in competitive regulatory analysis. Compare companies strictly within the legal topic areas specified by the user. If specific topic areas are listed (e.g. IP & Technology, Regulatory & Compliance, Litigation & Courts, Corporate & M&A), confine every insight to those areas only — do not stray into unrelated legal domains.
+
+These companies may not all operate primarily in the US. Before analyzing, determine (use web_search if needed) which countries each company primarily operates in and where it is listed/incorporated — do not assume US-only. For each relevant jurisdiction, prioritize official, primary sources over blogs or unverified news: for example SEC EDGAR and CourtListener for US companies, EUR-Lex and European Commission announcements for the EU, Companies House and the FCA register for the UK, EDINET for Japan, DART for South Korea, or the equivalent official regulator, court, or government gazette for other countries. The context below already includes some US-sourced news/case/filing data as a starting point — supplement it with jurisdiction-appropriate sources for each company via web_search/web_fetch, and do not treat the US sources as sufficient for a non-US company.
+
+Also look for what each company has recently told investors — 10-K risk factors, annual report, earnings call commentary, investor day materials — and explicitly compare that against current legal/regulatory developments, calling out concrete gaps or alignments rather than generic statements.
+
+Every risk, advantage, and development you list must be grounded in a specific source found via the context or web_search/web_fetch. Do not write vague, ungrounded generalities — if you cannot find credible evidence for a claim, omit it rather than inventing one.
 
 Respond ONLY as valid JSON (no markdown fences, no text outside the JSON object):
 {
@@ -414,7 +512,8 @@ Respond ONLY as valid JSON (no markdown fences, no text outside the JSON object)
       "keyRisks": ["specific risk within selected topics 1", "risk 2", "risk 3"],
       "legalAdvantages": ["advantage within selected topics 1", "advantage 2"],
       "recentDevelopments": ["recent legal development relevant to selected topics 1", "development 2"],
-      "regulatoryExposure": "One sentence on main exposure within the selected topic areas"
+      "regulatoryExposure": "One sentence on main exposure within the selected topic areas",
+      "citations": ["https://... real URL backing the above", "https://..."]
     }
   },
   "industryTrends": ["regulatory trend within selected topics 1", "trend 2", "trend 3"],
@@ -423,12 +522,14 @@ Respond ONLY as valid JSON (no markdown fences, no text outside the JSON object)
 }`,
         messages: [{ role: 'user', content: ctx }]
       }),
-      signal: AbortSignal.timeout(30000)
+      signal: AbortSignal.timeout(60000)
     });
 
     if (!claudeRes.ok) return res.status(500).json({ error: 'Claude API error.' });
     const claudeData = await claudeRes.json();
-    const raw = (claudeData.content?.[0]?.text || '').trim();
+    // With web_search/web_fetch tools, content includes tool_result blocks alongside
+    // text blocks — the final answer isn't necessarily at index 0, so join all text blocks.
+    const raw = (claudeData.content || []).map(b => b.text || '').join('').trim();
 
     try {
       const m = raw.match(/\{[\s\S]*\}/);
@@ -448,7 +549,7 @@ Respond ONLY as valid JSON (no markdown fences, no text outside the JSON object)
 const ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
 
 app.post('/api/story-research', async (req, res) => {
-  if (!checkRateLimit(req.ip)) {
+  if (!checkRateLimit(req.ip, 'story-research', 8)) {
     return res.status(429).json({ error: 'Too many research requests. Please try again later.' });
   }
 

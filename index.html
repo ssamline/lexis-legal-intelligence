@@ -1058,20 +1058,9 @@ async function generateBriefing(retries = 1) {
   document.getElementById('brief-spin').style.display  = 'inline-flex';
   document.getElementById('renew-btn').disabled        = true;
 
-  const topicNames = activeTopics.map(t=>TOPIC_META[t].label).join(', ');
-  const sources    = S.urls.join(', ') || 'general legal news';
-  const kwExtra    = S.keywords.length ? ` Emphasize: ${S.keywords.join(', ')}.` : '';
-  const today      = new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
-
-  let bizInstr = ` For each section include a "biz" array of 1-2 opportunities and 1-2 risks directly tied to that section's legal developments.`;
-  if (activeSectors.length) bizInstr += ` Business sectors: ${activeSectors.join(', ')}.`;
-  if (S.companies.length)   bizInstr += ` Tracked companies: ${S.companies.join(', ')}.`;
-  bizInstr += ` Each biz item: {type:"opportunity"|"risk",company:"name or empty",sector:"name or empty",text:"1-2 sentences"}.`;
-
   // Fetch articles directly from user's chosen source websites
   S.articles = [];
   S.failedSources = [];
-  let articleCtx = '';
   try {
     const newsRes  = await fetch('/api/search-news', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1080,33 +1069,21 @@ async function generateBriefing(retries = 1) {
     const newsData = await newsRes.json();
     S.articles      = newsData.articles || [];
     S.failedSources = newsData.failedDomains || [];
-    if (S.articles.length) {
-      articleCtx = '\n\nRecent articles fetched from the user\'s selected sources:\n' +
-        S.articles.map((a, i) => `${i+1}. (${a.domain}) ${a.title}`).join('\n');
-    }
   } catch(e) { /* proceed without real articles */ }
 
-  const hasArticles = S.articles.length > 0;
-  const foreignInstr = ` Additionally, inspect the article list above by their (domain) prefix — if any domain's article titles are written in a language other than English, identify each such distinct language. For each one, write a 3-5 sentence summary paragraph, written ENTIRELY in that language, covering only the legal and business developments implied by that domain's titles, scoped to topics: ${topicNames}${activeSectors.length ? ' and business sectors: ' + activeSectors.join(', ') : ''}. Add one entry per distinct non-English language to a "foreignSummaries" array: {"language":"<language name in English, e.g. French>","text":"<summary written in that language>"}. If every source domain's titles are in English, return "foreignSummaries": [].`;
-  const failedSourcesInstr = S.failedSources.length
-    ? ` Additionally, for each of these source domains that returned no articles today — ${S.failedSources.join(', ')} — suggest ONE real, well-known alternative English-language legal or business-regulatory news site (one likely to have a working public RSS feed) that covers similar ground. Add one entry per failed domain to a "sourceAlternatives" array: {"failedDomain":"...","suggestion":"suggested-domain.com","reason":"one short sentence why"}.`
-    : '';
-  const system = `You are a senior legal news analyst. Generate a concise daily legal briefing for ${today}. Topics: ${topicNames}.${kwExtra}${bizInstr}
-${hasArticles ? articleCtx + `\n\nUsing ONLY the articles listed above, select and summarize the ones most strategically significant for the selected topics${activeSectors.length ? ' and business sectors' : ''} — prioritize by likely business/legal impact (deal risk, regulatory exposure, competitive positioning, revenue impact), never by which source domain or language an article happens to come from. Write 2-3 bullet summaries per section from that selection. Each bullet MUST reference one article by its number using "ref": <integer>. Do NOT copy URLs into the JSON.${foreignInstr}` : 'No live articles available — generate a plausible briefing based on current legal trends. Omit "ref" from bullets.'}${failedSourcesInstr}
-Reply ONLY in valid JSON, no markdown fences:
-{"sections":[{"topic":"ip","bullets":[{"text":"one-sentence summary of the article","ref":1}],"prose":"...","biz":[{"type":"opportunity","company":"","sector":"","text":"..."}]}],"foreignSummaries":[{"language":"French","text":"..."}],"sourceAlternatives":[{"failedDomain":"...","suggestion":"...","reason":"..."}]}
-Only include these topics: ${activeTopics.join(',')}.`;
-
   try {
-    const res = await fetch('/api/chat', {
+    // System prompt, model, and tool selection are all decided server-side —
+    // see /api/generate-briefing in server.js and CLAUDE.md's "서버가 프롬프트 고정" rule.
+    const res = await fetch('/api/generate-briefing', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 2500,
-        temperature: 0,
-        system,
-        messages: [{ role: 'user', content: `Generate briefing. Topics:${activeTopics.join(',')}.` }]
+        activeTopics,
+        keywords: S.keywords,
+        sectors: activeSectors,
+        companies: S.companies,
+        articles: S.articles,
+        failedSources: S.failedSources
       })
     });
     const text = await res.text();
@@ -1174,11 +1151,14 @@ Only include these topics: ${activeTopics.join(',')}.`;
       if (!items?.length) return '';
       const opps  = items.filter(x=>x.type==='opportunity');
       const risks = items.filter(x=>x.type==='risk');
-      const row = (list,cls,lbl) => list.map(x=>`
+      const row = (list,cls,lbl) => list.map(x=>{
+        const safeHref = x.source ? String(x.source).replace(/"/g,'&quot;') : '';
+        return `
         <div class="biz-item ${cls}">
           <div class="biz-lbl">${lbl}${x.company?`<span class="co-badge">🏢 ${x.company}</span>`:''}${x.sector&&!x.company?`<span class="co-badge">📊 ${x.sector}</span>`:''}</div>
-          <p>${x.text}</p>
-        </div>`).join('');
+          <p>${x.text}${safeHref ? ` <a href="${safeHref}" target="_blank" rel="noopener" style="color:var(--accent);font-size:11px">source ↗</a>` : ''}</p>
+        </div>`;
+      }).join('');
       return `<div class="biz-card" style="margin-top:12px">
         <div class="biz-title">📊 Opportunities &amp; Risks</div>
         <div class="biz-items">${row(opps,'opp','▲ Opportunity')}${row(risks,'risk','▼ Risk')}</div>
@@ -1523,6 +1503,13 @@ function renderCompareResults(analysis, sources) {
       if (d.keyRisks?.length) html += `<div class="compare-section"><div class="compare-section-label">Key Risks</div><ul class="compare-list">${d.keyRisks.map(r=>`<li>${r}</li>`).join('')}</ul></div>`;
       if (d.legalAdvantages?.length) html += `<div class="compare-section"><div class="compare-section-label" style="color:#166534">Legal Advantages</div><ul class="compare-list">${d.legalAdvantages.map(a=>`<li style="color:#166534">${a}</li>`).join('')}</ul></div>`;
       if (d.recentDevelopments?.length) html += `<div class="compare-section"><div class="compare-section-label">Recent Developments</div><ul class="compare-list">${d.recentDevelopments.map(x=>`<li>${x}</li>`).join('')}</ul></div>`;
+      if (d.citations?.length) {
+        html += `<div class="compare-section" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--rule)"><div class="compare-section-label">Sources</div><ul class="compare-list">${d.citations.map(u=>{
+          const safeUrl = String(u).replace(/"/g,'&quot;');
+          let label; try { label = new URL(u).hostname.replace(/^www\./,''); } catch { label = String(u).slice(0,40); }
+          return `<li><a href="${safeUrl}" target="_blank" rel="noopener" style="color:var(--accent)">${label} ↗</a></li>`;
+        }).join('')}</ul></div>`;
+      }
       html += `</div>`;
     }
     html += `</div>`;
