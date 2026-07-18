@@ -679,12 +679,17 @@ body{font-family:Georgia,serif;background:var(--surface);color:var(--ink);min-he
 // ─────────────────────────────────────────────────────────────────────────────
 // STATE
 // ─────────────────────────────────────────────────────────────────────────────
+// Recommended legal news sources (verified against this app's feed-discovery
+// logic — see commit f9c0a89). Used both as the starting point for brand-new
+// profiles and as a one-time top-up for existing accounts in loadUserProfile().
+const DEFAULT_NEWS_SOURCES = ['natlawreview.com','complianceweek.com','abajournal.com','courthousenews.com','lawgazette.co.uk'];
+
 const S = {
   topics:    { ip:true, reg:true, lit:true, corp:true },
   sectors:   {},
   keywords:  [],
   companies: [],
-  urls:      ['natlawreview.com','complianceweek.com','abajournal.com','courthousenews.com','lawgazette.co.uk'],
+  urls:      DEFAULT_NEWS_SOURCES.slice(),
   context:   '',
   archive:   [],
   articles:  [],  // fetched news articles for current briefing [{topic,title,link,domain}]
@@ -2838,12 +2843,23 @@ async function loadUserProfile(nick) {
     const snap = await getDoc(doc(db, 'users', nick));
     if (!snap.exists()) return;
     const p = snap.data();
-    if (Array.isArray(p.urls)) {
-      window.S.urls = p.urls;
-      document.getElementById('url-items').innerHTML = p.urls.map(v =>
-        `<div class="url-item"><span>${escHtml(v)}</span><button class="url-del" onclick="removeUrl(this,'${escHtml(v)}')">×</button></div>`
-      ).join('');
-    }
+    // Merge in any recommended sources this account is missing — accounts created
+    // before commit f9c0a89 (or that started from the even-older law360.com/
+    // courthousenews.com defaults) never got the current recommended list, since
+    // that change only affected brand-new profiles going forward. This is a
+    // one-time top-up: additions only, nothing the user already has is touched,
+    // and it's re-synced so it doesn't need to run again next login.
+    const urls = Array.isArray(p.urls) ? p.urls.slice() : [];
+    let mergedIn = false;
+    DEFAULT_NEWS_SOURCES.forEach(src => {
+      if (!urls.includes(src)) { urls.push(src); mergedIn = true; }
+    });
+    window.S.urls = urls;
+    document.getElementById('url-items').innerHTML = urls.map(v =>
+      `<div class="url-item"><span>${escHtml(v)}</span><button class="url-del" onclick="removeUrl(this,'${escHtml(v)}')">×</button></div>`
+    ).join('');
+    try { localStorage.setItem('lexbrief_urls', JSON.stringify(urls)); } catch {}
+    if (mergedIn) syncUserProfile();
     if (p.topics) {
       Object.assign(window.S.topics, p.topics);
       document.querySelectorAll('.topic-pill[data-topic]').forEach(el => {
@@ -2907,7 +2923,7 @@ function escHtml(s) {
 // find-cause). Language is deliberately left untouched — it's a browser
 // display preference, not per-user private data (see plan section 6).
 function resetLocalSettingsToDefaults() {
-  window.S.urls      = ['natlawreview.com', 'complianceweek.com', 'abajournal.com', 'courthousenews.com', 'lawgazette.co.uk'];
+  window.S.urls      = DEFAULT_NEWS_SOURCES.slice();
   window.S.topics    = { ip: true, reg: true, lit: true, corp: true };
   window.S.sectors   = {};
   window.S.keywords  = [];
