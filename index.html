@@ -4,9 +4,13 @@
 <title>LexBrief — Legal Intelligence</title>
 <style>
 :root {
-  --ink:#0D1117; --ink2:#3A3F4A; --ink3:#6B7280;
-  --rule:#E2E4E8; --surface:#F7F8FA; --white:#ffffff;
-  --accent:#1A3A5C; --accent-light:#EBF0F7;
+  /* Warm neutral palette — see docs/plans/plan_visual_refresh.md §2 for the
+     WCAG contrast math behind each value. Semantic colors below (tags, risk
+     badges, biz-card) are deliberately left cool/unchanged — they encode
+     meaning (risk level, topic category), not brand mood. */
+  --ink:#2B2622; --ink2:#55504A; --ink3:#746C60;
+  --rule:#E8E1D6; --surface:#F5F1E8; --white:#ffffff;
+  --accent:#8B4A2C; --accent-light:#F5E6DA;
   --gold:#B8860B; --gold-light:#FDF8EC;
   --tag-ip:#EEF2FF; --tag-ip-t:#3730A3;
   --tag-reg:#FFF7ED; --tag-reg-t:#9A3412;
@@ -14,8 +18,8 @@
   --tag-corp:#FDF4FF; --tag-corp-t:#6B21A8;
   --tag-biz:#ECFDF5; --tag-biz-t:#065F46;
   --tag-foreign:#F1F5F9; --tag-foreign-t:#334155;
-  --radius:8px;
-  --shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+  --radius:10px;
+  --shadow:0 1px 3px rgba(60,40,20,.08),0 1px 2px rgba(60,40,20,.04);
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:Georgia,serif;background:var(--surface);color:var(--ink);min-height:100vh}
@@ -27,6 +31,11 @@ body{font-family:Georgia,serif;background:var(--surface);color:var(--ink);min-he
 .logo-text{font-size:15px;font-weight:400;letter-spacing:.04em;color:rgba(255,255,255,.95)}
 .logo-sub{font-size:10px;color:rgba(255,255,255,.5);letter-spacing:.08em;text-transform:uppercase;font-family:Arial,sans-serif}
 .header-date{font-size:12px;color:rgba(255,255,255,.55);font-family:Arial,sans-serif}
+/* #app-lang-select's own text is white to read against the dark header, but that
+   color inherits into the native <option> list (rendered on a light OS/browser
+   background), making the open dropdown's options invisible — override just the
+   options back to normal dark-on-light. */
+#app-lang-select option{color:var(--ink);background:var(--white)}
 
 /* ── Nav ── */
 .nav{display:flex;background:var(--white);border-bottom:1px solid var(--rule);padding:0 1.5rem}
@@ -34,8 +43,23 @@ body{font-family:Georgia,serif;background:var(--surface);color:var(--ink);min-he
 .nav-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
 .nav-btn:hover:not(.active){color:var(--ink2)}
 
+/* Pre-existing bug (confirmed present before this session too): at narrow
+   viewports the 4 nav labels don't fit and force horizontal scroll on the
+   whole page. Shrink to icon-only below 480px (covers all common phones),
+   and add a horizontal-scroll safety net up to 700px for longer translated
+   labels (French/Spanish run longer than English) instead of clipping. */
+@media (max-width:700px){
+  .nav{padding:0 .5rem;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .nav::-webkit-scrollbar{display:none}
+  .nav-btn{padding:12px 10px;font-size:12px;gap:4px}
+}
+@media (max-width:480px){
+  .nav-btn span{display:none}
+  .nav-btn{padding:12px 16px;font-size:17px}
+}
+
 /* ── Layout ── */
-.main{flex:1;padding:1.5rem;display:flex;flex-direction:column;gap:1.25rem}
+.main{flex:1;padding:1.5rem;display:flex;flex-direction:column;gap:1.5rem}
 .panel{display:none;flex-direction:column;gap:1.25rem}
 .panel.active{display:flex}
 
@@ -43,7 +67,7 @@ body{font-family:Georgia,serif;background:var(--surface);color:var(--ink);min-he
 .card{background:var(--white);border:1px solid var(--rule);border-radius:var(--radius);box-shadow:var(--shadow)}
 .card-head{padding:1rem 1.25rem;border-bottom:1px solid var(--rule);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .card-title{font-size:13px;font-weight:600;color:var(--ink2);text-transform:uppercase;letter-spacing:.06em;font-family:Arial,sans-serif}
-.card-body{padding:1.25rem}
+.card-body{padding:1.375rem}
 
 /* ── Pills ── */
 .topic-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
@@ -154,6 +178,16 @@ body{font-family:Georgia,serif;background:var(--surface);color:var(--ink);min-he
 .hint{font-family:Arial,sans-serif;font-size:13px;color:var(--ink3);text-align:center;padding:2rem 1rem}
 .note{background:var(--gold-light);border:1px solid #F0DFA0;border-radius:var(--radius);padding:10px 14px;font-family:Arial,sans-serif;font-size:12px;color:#78580A;display:flex;gap:8px;align-items:flex-start}
 .section-lbl2{font-family:Arial,sans-serif;font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px}
+
+/* ── Settings accordion (Sources & Topics) ── */
+.settings-card-head{cursor:pointer;user-select:none}
+.settings-card-head .card-title{transition:color .15s}
+.settings-count{font-weight:400;text-transform:none;letter-spacing:0;color:var(--ink3);margin-left:2px}
+.settings-chevron{font-size:11px;color:var(--ink3);transition:transform .2s;flex-shrink:0}
+.card.settings-collapsed .card-body{display:none}
+.card.settings-collapsed .card-head{border-bottom:none}
+.card.settings-collapsed .settings-card-head .card-title{color:var(--ink3)}
+.card.settings-collapsed .settings-chevron{transform:rotate(-90deg)}
 .spinner{width:13px;height:13px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block;vertical-align:middle}
 .spinner.dark{border-color:rgba(26,58,92,.2);border-top-color:var(--accent)}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -233,6 +267,12 @@ body{font-family:Georgia,serif;background:var(--surface);color:var(--ink);min-he
 .start-gate-row input:focus{border-color:var(--accent)}
 .start-gate-row button{font-family:Arial,sans-serif;font-size:13px;font-weight:600;padding:10px 20px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);cursor:pointer;white-space:nowrap}
 .start-gate-row button:disabled{opacity:.4;cursor:not-allowed}
+.start-gate-hero{background:var(--accent);border-radius:var(--radius);padding:1.75rem 1.5rem 1.5rem;text-align:center;color:#fff;box-shadow:var(--shadow)}
+.start-gate-hero .start-gate-logo{justify-content:center;margin-bottom:.75rem}
+.start-gate-hero-title{font-family:Georgia,serif;font-size:18px;color:#fff}
+.start-gate-tagline{font-family:Arial,sans-serif;font-size:11px;color:rgba(255,255,255,.65);text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px}
+.gate-quote{font-family:Georgia,serif;font-style:italic;font-size:13px;color:rgba(255,255,255,.92);line-height:1.6;max-width:380px;margin:0 auto}
+.gate-quote-author{display:block;font-family:Arial,sans-serif;font-style:normal;font-size:10px;color:rgba(255,255,255,.55);margin-top:4px;text-transform:uppercase;letter-spacing:.05em}
 .start-recent-title{font-family:Arial,sans-serif;font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px}
 .start-recent-list{display:flex;flex-direction:column;gap:8px}
 .start-recent-item{background:var(--white);border:1px solid var(--rule);border-radius:var(--radius);padding:11px 14px}
@@ -245,8 +285,10 @@ body{font-family:Georgia,serif;background:var(--surface);color:var(--ink);min-he
 .thought-compose textarea{font-family:Georgia,serif;font-size:13px;padding:10px 12px;border:1px solid var(--rule);border-radius:var(--radius);color:var(--ink);resize:vertical;min-height:64px;outline:none}
 .thought-compose textarea:focus{border-color:var(--accent)}
 .thought-feed{display:flex;flex-direction:column;gap:10px}
-.thought-card{background:var(--white);border:1px solid var(--rule);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px}
-.thought-card-head{display:flex;align-items:baseline;gap:8px;margin-bottom:6px}
+.thought-card{background:var(--white);border:1px solid var(--rule);border-left:3px solid var(--rule);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px}
+.thought-card-head{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.thought-avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-family:Arial,sans-serif;font-size:12px;font-weight:700;flex-shrink:0;user-select:none}
+.thought-head-text{display:flex;align-items:baseline;gap:8px}
 .thought-nick{font-family:Arial,sans-serif;font-size:12px;font-weight:700;color:var(--accent)}
 .thought-time{font-family:Arial,sans-serif;font-size:11px;color:var(--ink3)}
 .thought-text{font-family:Georgia,serif;font-size:14px;line-height:1.65;color:var(--ink);margin-bottom:8px;white-space:pre-wrap}
@@ -270,22 +312,27 @@ body{font-family:Georgia,serif;background:var(--surface);color:var(--ink);min-he
 
 <div class="start-gate" id="start-gate">
   <div class="start-gate-inner">
-    <div class="start-gate-logo">
-      <div class="logo-mark" style="background:var(--accent);color:#fff">Lx</div>
-      <div style="font-family:Georgia,serif;font-size:16px;color:var(--ink)">LexBrief</div>
-      <select id="gate-lang-select" onchange="setLanguage(this.value)" style="margin-left:auto;font-size:12px;font-family:Arial,sans-serif;padding:4px 6px;border:1px solid var(--rule);border-radius:6px;background:var(--white);color:var(--ink)">
-        <option value="en">English</option>
-        <option value="ko">한국어</option>
-        <option value="es">Español</option>
-        <option value="fr">Français</option>
-        <option value="zh">中文</option>
-        <option value="ja">日本語</option>
-      </select>
+    <div class="start-gate-hero">
+      <div class="start-gate-logo">
+        <div class="logo-mark" style="background:#fff;color:var(--accent)">Lx</div>
+        <div class="start-gate-hero-title">LexBrief</div>
+        <select id="gate-lang-select" onchange="setLanguage(this.value)" style="margin-left:auto;font-size:12px;font-family:Arial,sans-serif;padding:4px 6px;border:1px solid var(--rule);border-radius:6px;background:var(--white);color:var(--ink)">
+          <option value="en">English</option>
+          <option value="ko">한국어</option>
+          <option value="es">Español</option>
+          <option value="fr">Français</option>
+          <option value="zh">中文</option>
+          <option value="ja">日本語</option>
+        </select>
+      </div>
+      <p class="start-gate-tagline" data-i18n="header.tagline">Legal Intelligence · Team Edition</p>
+      <p class="gate-quote" id="gate-quote"></p>
     </div>
     <div class="start-gate-card">
       <h1 data-i18n="gate.title">Enter a nickname to get started</h1>
       <p data-i18n="gate.desc">You'll need a nickname to share opinions and questions with friends. A new nickname registers a password on the spot; an existing nickname needs the same password to sign back in.</p>
-      <div class="start-gate-row">
+      <div class="start-gate-row" style="align-items:center">
+        <div class="thought-avatar" id="gate-nick-avatar" style="display:none"></div>
         <input id="gate-nickname" type="text" data-i18n-ph="gate.nickname_ph" placeholder="Nickname" maxlength="20" oninput="onGateNicknameInput()" onkeydown="if(event.key==='Enter')enterApp()">
       </div>
       <div class="start-gate-row">
@@ -508,8 +555,11 @@ body{font-family:Georgia,serif;background:var(--surface);color:var(--ink);min-he
     <!-- ══ SOURCES & TOPICS ══ -->
     <div class="panel" id="panel-settings">
 
-      <div class="card">
-        <div class="card-head"><span class="card-title" data-i18n="settings.legal_topics">Legal Topics</span></div>
+      <div class="card" id="settings-card-legal">
+        <div class="card-head settings-card-head" onclick="toggleSettingsCard('legal')">
+          <span class="card-title">⚖ <span data-i18n="settings.legal_topics">Legal Topics</span> <span class="settings-count" id="settings-count-legal"></span></span>
+          <span class="settings-chevron">▾</span>
+        </div>
         <div class="card-body">
           <p style="font-family:Arial,sans-serif;font-size:13px;color:var(--ink3);margin-bottom:12px" data-i18n="settings.legal_topics_desc">Toggle topics and add custom keywords. These shape your daily briefing.</p>
           <div class="topic-row">
@@ -526,8 +576,11 @@ body{font-family:Georgia,serif;background:var(--surface);color:var(--ink);min-he
         </div>
       </div>
 
-      <div class="card">
-        <div class="card-head"><span class="card-title" data-i18n="settings.business_topics">Business Topics</span></div>
+      <div class="card" id="settings-card-business">
+        <div class="card-head settings-card-head" onclick="toggleSettingsCard('business')">
+          <span class="card-title">🏢 <span data-i18n="settings.business_topics">Business Topics</span> <span class="settings-count" id="settings-count-business"></span></span>
+          <span class="settings-chevron">▾</span>
+        </div>
         <div class="card-body">
           <p style="font-family:Arial,sans-serif;font-size:13px;color:var(--ink3);margin-bottom:12px" data-i18n="settings.business_topics_desc">Select sectors and track companies. The briefing will surface legal opportunities and risks for each.</p>
           <div class="section-lbl2" data-i18n="settings.business_sectors">Business Sectors</div>
@@ -554,8 +607,11 @@ body{font-family:Georgia,serif;background:var(--surface);color:var(--ink);min-he
         </div>
       </div>
 
-      <div class="card">
-        <div class="card-head"><span class="card-title" data-i18n="settings.news_sources">News Sources</span></div>
+      <div class="card settings-collapsed" id="settings-card-sources">
+        <div class="card-head settings-card-head" onclick="toggleSettingsCard('sources')">
+          <span class="card-title">📰 <span data-i18n="settings.news_sources">News Sources</span> <span class="settings-count" id="settings-count-sources"></span></span>
+          <span class="settings-chevron">▾</span>
+        </div>
         <div class="card-body">
           <p style="font-family:Arial,sans-serif;font-size:13px;color:var(--ink3);margin-bottom:12px" data-i18n="settings.news_sources_desc">Add legal news websites. The briefing engine references these sources.</p>
           <div class="url-input-row">
@@ -569,8 +625,11 @@ body{font-family:Georgia,serif;background:var(--surface);color:var(--ink);min-he
         </div>
       </div>
 
-      <div class="card">
-        <div class="card-head"><span class="card-title" data-i18n="settings.archive_schedule">Archive Schedule</span></div>
+      <div class="card settings-collapsed" id="settings-card-schedule">
+        <div class="card-head settings-card-head" onclick="toggleSettingsCard('schedule')">
+          <span class="card-title">⏰ <span data-i18n="settings.archive_schedule">Archive Schedule</span> <span class="settings-count" id="settings-count-schedule"></span></span>
+          <span class="settings-chevron">▾</span>
+        </div>
         <div class="card-body">
           <p style="font-family:Arial,sans-serif;font-size:13px;color:var(--ink3);margin-bottom:14px" data-i18n="settings.archive_schedule_desc">Automatically generate and save a briefing at one or more times each day, using your current topics, sectors, and tracked companies above.</p>
           <div id="alarm-times" style="display:flex;flex-direction:column;gap:8px"></div>
@@ -718,6 +777,7 @@ function renderAlarmTimes() {
       <button class="url-del" onclick="removeAlarmTime(${i})">×</button>
     </div>`).join('');
   updateAlarmStatus();
+  updateSettingsCounts();
 }
 
 function addAlarmTime() {
@@ -801,6 +861,53 @@ function showBriefView(view, btn) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// SOURCES & TOPICS ACCORDION
+// ─────────────────────────────────────────────────────────────────────────────
+const SETTINGS_OPEN_KEY = 'lexbrief_settings_open';
+// Legal/Business Topics open by default (adjusted most often, drive the daily
+// briefing directly); News Sources/Archive Schedule collapsed (set-and-forget).
+const settingsOpenState = { legal: true, business: true, sources: false, schedule: false };
+
+function applySettingsCardState(key) {
+  const card = document.getElementById('settings-card-' + key);
+  if (card) card.classList.toggle('settings-collapsed', !settingsOpenState[key]);
+}
+
+function toggleSettingsCard(key) {
+  settingsOpenState[key] = !settingsOpenState[key];
+  applySettingsCardState(key);
+  try { localStorage.setItem(SETTINGS_OPEN_KEY, JSON.stringify(settingsOpenState)); } catch {}
+}
+
+function loadSettingsOpenState() {
+  try {
+    const saved = localStorage.getItem(SETTINGS_OPEN_KEY);
+    if (saved) Object.assign(settingsOpenState, JSON.parse(saved));
+  } catch {}
+  Object.keys(settingsOpenState).forEach(applySettingsCardState);
+}
+
+function updateSettingsCounts() {
+  const activeTopics  = Object.values(S.topics).filter(Boolean).length;
+  const legalParts    = [`${activeTopics}/4`];
+  if (S.keywords.length) legalParts.push(`${S.keywords.length} kw`);
+  const legalEl = document.getElementById('settings-count-legal');
+  if (legalEl) legalEl.textContent = `(${legalParts.join(' · ')})`;
+
+  const activeSectors = Object.values(S.sectors).filter(Boolean).length;
+  const bizEl = document.getElementById('settings-count-business');
+  if (bizEl) bizEl.textContent = `(${activeSectors} sectors · ${S.companies.length} companies)`;
+
+  const srcEl = document.getElementById('settings-count-sources');
+  if (srcEl) srcEl.textContent = `(${S.urls.length})`;
+
+  const schedEl = document.getElementById('settings-count-schedule');
+  if (schedEl) schedEl.textContent = `(${ALARM.times.length})`;
+}
+window.toggleSettingsCard  = toggleSettingsCard;
+window.updateSettingsCounts = updateSettingsCounts;
+
+// ─────────────────────────────────────────────────────────────────────────────
 // TOPICS / SECTORS / KEYWORDS / COMPANIES / URLS
 // ─────────────────────────────────────────────────────────────────────────────
 function toggleTopic(el) {
@@ -809,6 +916,7 @@ function toggleTopic(el) {
   el.classList.toggle('off', !S.topics[t]);
   try { localStorage.setItem('lexbrief_topics', JSON.stringify(S.topics)); } catch {}
   syncUserProfile();
+  updateSettingsCounts();
 }
 function toggleSector(el) {
   const s = el.dataset.sector;
@@ -816,6 +924,7 @@ function toggleSector(el) {
   el.classList.toggle('off', !S.sectors[s]);
   try { localStorage.setItem('lexbrief_sectors', JSON.stringify(S.sectors)); } catch {}
   syncUserProfile();
+  updateSettingsCounts();
 }
 function addKeyword() {
   const inp = document.getElementById('kw-in'), v = inp.value.trim();
@@ -832,6 +941,7 @@ function removeKeyword(k) {
 function renderKwChips() {
   document.getElementById('kw-chips').innerHTML =
     S.keywords.map(k=>`<span class="chip">${k}<button class="chip-x" onclick="removeKeyword('${esc(k)}')">×</button></span>`).join('');
+  updateSettingsCounts();
 }
 function addCompany() {
   const inp = document.getElementById('co-in'), v = inp.value.trim();
@@ -849,6 +959,7 @@ function renderCoChips() {
     : '';
   document.getElementById('co-chips').innerHTML = chips + cmpBtn;
   try { localStorage.setItem('lexbrief_companies', JSON.stringify(S.companies)); } catch {}
+  updateSettingsCounts();
 }
 function addUrl() {
   const inp = document.getElementById('url-in');
@@ -860,11 +971,13 @@ function addUrl() {
   document.getElementById('url-items').appendChild(d); inp.value='';
   try { localStorage.setItem('lexbrief_urls', JSON.stringify(S.urls)); } catch {}
   syncUserProfile();
+  updateSettingsCounts();
 }
 function removeUrl(btn, url) {
   S.urls=S.urls.filter(u=>u!==url); btn.closest('.url-item').remove();
   try { localStorage.setItem('lexbrief_urls', JSON.stringify(S.urls)); } catch {}
   syncUserProfile();
+  updateSettingsCounts();
 }
 
 document.getElementById('kw-in').addEventListener('keydown', e=>{ if(e.key==='Enter') addKeyword(); });
@@ -1720,6 +1833,11 @@ document.addEventListener('DOMContentLoaded', () => {
   loadAlarm();
   renderTrendTopicPills();
   startBriefing();
+  // Sources & Topics accordion — must run after ALARM/settingsOpenState (both
+  // declared later in this same script) have been initialized; DOMContentLoaded
+  // guarantees the whole script already ran top-to-bottom by this point.
+  loadSettingsOpenState();
+  updateSettingsCounts();
 });
 
 </script>
@@ -2567,6 +2685,81 @@ function retranslate() {
 }
 window.retranslate = retranslate;
 
+// Gate-screen decorative quotes — flavor text, not legal citations, so
+// translation only needs to carry the meaning accurately (see
+// docs/plans/plan_visual_refresh.md §3-4).
+const QUOTES = {
+  en: [
+    { text: "Justice delayed is justice denied.", author: "William E. Gladstone" },
+    { text: "The law is reason, free from passion.", author: "Aristotle" },
+    { text: "Injustice anywhere is a threat to justice everywhere.", author: "Martin Luther King Jr." },
+    { text: "Where law ends, tyranny begins.", author: "William Pitt" },
+    { text: "Equal justice under law.", author: "U.S. Supreme Court motto" },
+    { text: "The good of the people is the greatest law.", author: "Cicero" },
+    { text: "No man is above the law and no man is below it.", author: "Theodore Roosevelt" },
+    { text: "Justice is truth in action.", author: "Benjamin Disraeli" },
+  ],
+  ko: [
+    { text: "지체된 정의는 정의가 아니다.", author: "윌리엄 글래드스턴" },
+    { text: "법은 열정에서 자유로운 이성이다.", author: "아리스토텔레스" },
+    { text: "어느 곳의 불의든 모든 곳의 정의를 위협한다.", author: "마틴 루터 킹 주니어" },
+    { text: "법이 끝나는 곳에서 폭정이 시작된다.", author: "윌리엄 피트" },
+    { text: "법 앞의 평등한 정의.", author: "미국 연방대법원 모토" },
+    { text: "인민의 이익이 최고의 법이다.", author: "키케로" },
+    { text: "누구도 법 위에 있지 않고, 누구도 법 아래에 있지 않다.", author: "시어도어 루스벨트" },
+    { text: "정의는 행동하는 진실이다.", author: "벤저민 디즈레일리" },
+  ],
+  es: [
+    { text: "La justicia demorada es justicia denegada.", author: "William E. Gladstone" },
+    { text: "La ley es la razón libre de pasión.", author: "Aristóteles" },
+    { text: "La injusticia en cualquier lugar es una amenaza para la justicia en todas partes.", author: "Martin Luther King Jr." },
+    { text: "Donde termina la ley, comienza la tiranía.", author: "William Pitt" },
+    { text: "Justicia igual ante la ley.", author: "Lema de la Corte Suprema de EE. UU." },
+    { text: "El bien del pueblo es la ley suprema.", author: "Cicerón" },
+    { text: "Nadie está por encima de la ley, y nadie por debajo de ella.", author: "Theodore Roosevelt" },
+    { text: "La justicia es la verdad en acción.", author: "Benjamin Disraeli" },
+  ],
+  fr: [
+    { text: "Justice retardée, justice refusée.", author: "William E. Gladstone" },
+    { text: "La loi est la raison libérée de la passion.", author: "Aristote" },
+    { text: "L'injustice où que ce soit est une menace pour la justice partout.", author: "Martin Luther King Jr." },
+    { text: "Là où la loi s'arrête, la tyrannie commence.", author: "William Pitt" },
+    { text: "Justice égale devant la loi.", author: "Devise de la Cour suprême des États-Unis" },
+    { text: "Le bien du peuple est la loi suprême.", author: "Cicéron" },
+    { text: "Nul n'est au-dessus des lois, nul n'est en dessous.", author: "Theodore Roosevelt" },
+    { text: "La justice est la vérité en action.", author: "Benjamin Disraeli" },
+  ],
+  zh: [
+    { text: "迟来的正义等于非正义。", author: "威廉·格莱斯顿" },
+    { text: "法律是摆脱激情的理性。", author: "亚里士多德" },
+    { text: "任何地方的不义都是对所有地方正义的威胁。", author: "马丁·路德·金" },
+    { text: "法律止步之处，暴政开始。", author: "威廉·皮特" },
+    { text: "法律面前人人平等的正义。", author: "美国最高法院格言" },
+    { text: "人民的福祉是最高的法律。", author: "西塞罗" },
+    { text: "没有人在法律之上，也没有人在法律之下。", author: "西奥多·罗斯福" },
+    { text: "正义是行动中的真理。", author: "本杰明·迪斯雷利" },
+  ],
+  ja: [
+    { text: "遅れた正義は正義ではない。", author: "ウィリアム・グラッドストン" },
+    { text: "法とは、情熱から自由な理性である。", author: "アリストテレス" },
+    { text: "どこであれ不正義は、あらゆる場所の正義への脅威である。", author: "マーティン・ルーサー・キング・ジュニア" },
+    { text: "法が終わる所から、専制が始まる。", author: "ウィリアム・ピット" },
+    { text: "法の下の平等な正義。", author: "米連邦最高裁のモットー" },
+    { text: "人民の福利こそ最高の法である。", author: "キケロ" },
+    { text: "誰も法の上にはなく、誰も法の下にもいない。", author: "セオドア・ルーズベルト" },
+    { text: "正義とは行動する真実である。", author: "ベンジャミン・ディズレーリ" },
+  ],
+};
+
+function renderGateQuote() {
+  const el = document.getElementById('gate-quote');
+  if (!el) return;
+  const list = QUOTES[currentLang] || QUOTES.en;
+  const q = list[Math.floor(Math.random() * list.length)];
+  el.innerHTML = `“${q.text}”<span class="gate-quote-author">— ${q.author}</span>`;
+}
+window.renderGateQuote = renderGateQuote;
+
 function applyLanguage(lang) {
   currentLang = I18N[lang] ? lang : 'en';
   document.getElementById('gate-lang-select').value = currentLang;
@@ -2574,6 +2767,7 @@ function applyLanguage(lang) {
   retranslate();
   window.renderTrendTopicPills && window.renderTrendTopicPills();
   window.renderAlarmTimes && window.renderAlarmTimes();
+  window.renderGateQuote && window.renderGateQuote();
 }
 window.applyLanguage = applyLanguage;
 
@@ -2731,6 +2925,11 @@ function onGateNicknameInput() {
   const v  = document.getElementById('gate-nickname').value.trim();
   const pw = document.getElementById('gate-password').value;
   document.getElementById('gate-enter-btn').disabled = !v || pw.length < 4;
+  const avatar = document.getElementById('gate-nick-avatar');
+  if (avatar) {
+    avatar.style.display = v ? 'flex' : 'none';
+    if (v) { avatar.style.background = nickColor(v); avatar.textContent = nickInitials(v); }
+  }
 }
 
 function showGateError(msg) {
@@ -2830,6 +3029,24 @@ async function renderGateRecent() {
   }
 }
 
+// Deterministic nickname -> color, shared by Sharing Thoughts avatars/accent
+// bars and the gate's live nickname preview. Same nickname always gets the
+// same color; different nicknames are spread across a warm-harmonious set.
+const NICK_PALETTE = ['#8B4A2C','#B8763D','#6B8068','#5C7A8A','#8A5C7A','#A0522D','#7C8A4A','#4A6B6B'];
+function nickColor(nickname) {
+  const s = (nickname || '').trim();
+  if (!s) return NICK_PALETTE[0];
+  let hash = 0;
+  for (let i = 0; i < s.length; i++) hash = (hash * 31 + s.charCodeAt(i)) >>> 0;
+  return NICK_PALETTE[hash % NICK_PALETTE.length];
+}
+function nickInitials(nickname) {
+  const s = (nickname || '').trim();
+  return s ? s.slice(0, 2).toUpperCase() : '?';
+}
+window.nickColor = nickColor;
+window.nickInitials = nickInitials;
+
 // ── My Thoughts feed (inside the app) ───────────────────────────────────────
 function thoughtCardHtml(id, th) {
   thoughtsCache[id] = th;
@@ -2839,11 +3056,15 @@ function thoughtCardHtml(id, th) {
     ? `<button class="btn-ghost" onclick="editThought('${id}')">${t('sharing.edit')}</button>
        <button class="btn-ghost" id="thought-del-${id}" onclick="deleteThought('${id}')">${t('sharing.delete')}</button>`
     : '';
+  const color = nickColor(th.nickname);
   return `
-    <div class="thought-card" id="thought-${id}">
+    <div class="thought-card" id="thought-${id}" style="border-left-color:${color}">
       <div class="thought-card-head">
-        <span class="thought-nick">${escHtml(th.nickname)}</span>
-        <span class="thought-time">${timeAgo(th.createdAt)}${editedTag}</span>
+        <div class="thought-avatar" style="background:${color}">${nickInitials(th.nickname)}</div>
+        <div class="thought-head-text">
+          <span class="thought-nick">${escHtml(th.nickname)}</span>
+          <span class="thought-time">${timeAgo(th.createdAt)}${editedTag}</span>
+        </div>
       </div>
       <div class="thought-text" id="thought-text-${id}">${escHtml(th.text)}</div>
       <div class="thought-card-actions">
