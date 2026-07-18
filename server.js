@@ -383,9 +383,13 @@ Only include these topics: ${activeTopics.join(',')}.`;
     messages: [{ role: 'user', content: `Generate briefing. Topics:${activeTopics.join(',')}.` }]
   };
   if (hasCompanies) {
+    // max_uses kept modest: 2+ companies each doing jurisdiction research serially
+    // through the tool loop adds up in latency fast — a live test with 2 companies
+    // and max_uses:8 exceeded 150s. 4 each keeps the request under the timeout below
+    // while still allowing real per-company research (see plan doc's cost/latency note).
     body.tools = [
-      { type: 'web_search_20260209', name: 'web_search', max_uses: 8 },
-      { type: 'web_fetch_20260209', name: 'web_fetch', max_uses: 8 }
+      { type: 'web_search_20260209', name: 'web_search', max_uses: 4 },
+      { type: 'web_fetch_20260209', name: 'web_fetch', max_uses: 4 }
     ];
   } else {
     body.temperature = 0; // claude-sonnet-5 rejects an explicit temperature; Haiku path keeps it for consistency
@@ -396,7 +400,7 @@ Only include these topics: ${activeTopics.join(',')}.`;
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(hasCompanies ? 150000 : 30000)
+      signal: AbortSignal.timeout(hasCompanies ? 220000 : 30000)
     });
     const data = await claudeRes.json();
     res.status(claudeRes.status).json(data);
@@ -489,9 +493,12 @@ app.post('/api/compare-companies', async (req, res) => {
       body: JSON.stringify({
         model: 'claude-sonnet-5',
         max_tokens: 4000,
+        // max_uses kept modest: comparing 2+ companies each doing jurisdiction research
+        // serially through the tool loop adds up in latency fast — a live test with
+        // max_uses:8 exceeded 150s. See the matching note in /api/generate-briefing.
         tools: [
-          { type: 'web_search_20260209', name: 'web_search', max_uses: 8 },
-          { type: 'web_fetch_20260209', name: 'web_fetch', max_uses: 8 }
+          { type: 'web_search_20260209', name: 'web_search', max_uses: 4 },
+          { type: 'web_fetch_20260209', name: 'web_fetch', max_uses: 4 }
         ],
         system: `You are a legal intelligence analyst specializing in competitive regulatory analysis. Compare companies strictly within the legal topic areas specified by the user. If specific topic areas are listed (e.g. IP & Technology, Regulatory & Compliance, Litigation & Courts, Corporate & M&A), confine every insight to those areas only — do not stray into unrelated legal domains.
 
@@ -523,7 +530,7 @@ Respond ONLY as valid JSON (no markdown fences, no text outside the JSON object)
 }`,
         messages: [{ role: 'user', content: ctx }]
       }),
-      signal: AbortSignal.timeout(150000)
+      signal: AbortSignal.timeout(220000)
     });
 
     if (!claudeRes.ok) {
