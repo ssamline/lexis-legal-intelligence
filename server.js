@@ -378,11 +378,19 @@ Only include these topics: ${activeTopics.join(',')}.`;
 
   const body = {
     model: hasCompanies ? 'claude-sonnet-5' : 'claude-haiku-4-5-20251001',
-    max_tokens: hasCompanies ? 4000 : 2500,
+    max_tokens: hasCompanies ? 16000 : 2500,
     system,
     messages: [{ role: 'user', content: `Generate briefing. Topics:${activeTopics.join(',')}.` }]
   };
   if (hasCompanies) {
+    // max_tokens is a hard cap on thinking + tool_use + text combined on Sonnet 5's
+    // adaptive thinking — a live test at max_tokens:4000 hit stop_reason:"max_tokens"
+    // after 7.5k tokens of thinking and never produced any text. 16000 plus a lower
+    // "medium" effort (default is "high", which thinks almost always) leaves real
+    // room for the final JSON after tool-use research. See platform.claude.com's
+    // adaptive-thinking docs, "Cost control" section.
+    body.thinking = { type: 'adaptive' };
+    body.output_config = { effort: 'medium' };
     // max_uses kept modest: 2+ companies each doing jurisdiction research serially
     // through the tool loop adds up in latency fast — a live test with 2 companies
     // and max_uses:8 exceeded 150s. 4 each keeps the request under the timeout below
@@ -400,7 +408,7 @@ Only include these topics: ${activeTopics.join(',')}.`;
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(hasCompanies ? 220000 : 30000)
+      signal: AbortSignal.timeout(hasCompanies ? 280000 : 30000)
     });
     const data = await claudeRes.json();
     res.status(claudeRes.status).json(data);
@@ -492,7 +500,14 @@ app.post('/api/compare-companies', async (req, res) => {
       headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
         model: 'claude-sonnet-5',
-        max_tokens: 4000,
+        // max_tokens is a hard cap on thinking + tool_use + text combined on Sonnet 5's
+        // adaptive thinking — a live test at max_tokens:4000 hit stop_reason:"max_tokens"
+        // after thousands of tokens of thinking and never produced any text. 16000 plus
+        // a lower "medium" effort (default is "high") leaves real room for the final
+        // JSON after tool-use research. See platform.claude.com's adaptive-thinking docs.
+        max_tokens: 16000,
+        thinking: { type: 'adaptive' },
+        output_config: { effort: 'medium' },
         // max_uses kept modest: comparing 2+ companies each doing jurisdiction research
         // serially through the tool loop adds up in latency fast — a live test with
         // max_uses:8 exceeded 150s. See the matching note in /api/generate-briefing.
@@ -530,7 +545,7 @@ Respond ONLY as valid JSON (no markdown fences, no text outside the JSON object)
 }`,
         messages: [{ role: 'user', content: ctx }]
       }),
-      signal: AbortSignal.timeout(220000)
+      signal: AbortSignal.timeout(280000)
     });
 
     if (!claudeRes.ok) {
