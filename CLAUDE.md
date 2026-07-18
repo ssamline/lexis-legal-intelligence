@@ -1,4 +1,4 @@
-# LexBrief 프로젝트 CLAUDE.md
+# Lex.Almonds 프로젝트 CLAUDE.md
 
 이 파일은 프로젝트 루트에 두는 project-level CLAUDE.md 다. user-level CLAUDE.md 룰 위에 이 프로젝트 특화 룰이 추가된다.
 

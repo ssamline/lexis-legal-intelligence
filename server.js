@@ -68,7 +68,7 @@ async function tryFetchFeed(url, domain) {
   try {
     const res = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; LexBrief/1.0)',
+        'User-Agent': 'Mozilla/5.0 (compatible; Lex.Almonds/1.0)',
         'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*'
       },
       signal: AbortSignal.timeout(6000),
@@ -219,7 +219,7 @@ async function searchCourtListener(query) {
     const q   = encodeURIComponent(query);
     const res = await fetch(
       `https://www.courtlistener.com/api/rest/v4/search/?q=${q}&type=o&order_by=score+desc`,
-      { headers: { 'Accept': 'application/json', 'User-Agent': 'LexBrief/1.0' }, signal: AbortSignal.timeout(8000) }
+      { headers: { 'Accept': 'application/json', 'User-Agent': 'Lex.Almonds/1.0' }, signal: AbortSignal.timeout(8000) }
     );
     if (!res.ok) return [];
     const data = await res.json();
@@ -354,7 +354,7 @@ app.post('/api/compare-companies', async (req, res) => {
       const secRes = await fetch(
         `https://efts.sec.gov/LATEST/search-index?q=%22${encodeURIComponent(co)}%22&forms=10-K,10-Q,8-K&dateRange=custom&startdt=2024-01-01`,
         {
-          headers: { 'User-Agent': 'LexBrief/1.0 contact@lexbrief.app', 'Accept': 'application/json' },
+          headers: { 'User-Agent': 'Lex.Almonds/1.0 (lexalmonds@gmail.com)', 'Accept': 'application/json' },
           signal: AbortSignal.timeout(8000)
         }
       );

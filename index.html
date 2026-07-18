@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>LexBrief — Legal Intelligence</title>
+<title>Lex.Almonds — Legal Intelligence</title>
 <style>
 :root {
   /* Warm neutral palette — see docs/plans/plan_visual_refresh.md §2 for the
@@ -179,6 +179,11 @@ body{font-family:Georgia,serif;background:var(--surface);color:var(--ink);min-he
 .note{background:var(--gold-light);border:1px solid #F0DFA0;border-radius:var(--radius);padding:10px 14px;font-family:Arial,sans-serif;font-size:12px;color:#78580A;display:flex;gap:8px;align-items:flex-start}
 .section-lbl2{font-family:Arial,sans-serif;font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px}
 
+/* ── Footer (present on every tab, not fixed) ── */
+.app-footer{display:flex;justify-content:center;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 1.5rem;font-family:Arial,sans-serif;font-size:11px;color:var(--ink3);border-top:1px solid var(--rule);background:var(--white);flex-shrink:0}
+.app-footer a{color:var(--ink3);text-decoration:none}
+.app-footer a:hover{color:var(--accent);text-decoration:underline}
+
 /* ── Settings accordion (Sources & Topics) ── */
 .settings-card-head{cursor:pointer;user-select:none}
 .settings-card-head .card-title{transition:color .15s}
@@ -315,7 +320,7 @@ body{font-family:Georgia,serif;background:var(--surface);color:var(--ink);min-he
     <div class="start-gate-hero">
       <div class="start-gate-logo">
         <div class="logo-mark" style="background:#fff;color:var(--accent)">Lx</div>
-        <div class="start-gate-hero-title">LexBrief</div>
+        <div class="start-gate-hero-title">Lex.Almonds</div>
         <select id="gate-lang-select" onchange="setLanguage(this.value)" style="margin-left:auto;font-size:12px;font-family:Arial,sans-serif;padding:4px 6px;border:1px solid var(--rule);border-radius:6px;background:var(--white);color:var(--ink)">
           <option value="en">English</option>
           <option value="ko">한국어</option>
@@ -356,7 +361,7 @@ body{font-family:Georgia,serif;background:var(--surface);color:var(--ink);min-he
     <div style="display:flex;align-items:center;gap:10px">
       <div class="logo-mark">Lx</div>
       <div>
-        <div class="logo-text">LexBrief</div>
+        <div class="logo-text">Lex.Almonds</div>
         <div class="logo-sub" data-i18n="header.tagline">Legal Intelligence · Team Edition</div>
       </div>
     </div>
@@ -645,6 +650,12 @@ body{font-family:Georgia,serif;background:var(--surface);color:var(--ink);min-he
     </div>
 
   </div>
+
+  <div class="app-footer">
+    <span>© 2026 Lex.Almonds</span>
+    <a href="/terms.html" data-i18n="footer.terms">Terms of Use</a>
+    <a href="/privacy.html" data-i18n="footer.privacy">Privacy Policy</a>
+  </div>
 </div>
 
 <!-- ── Article Reader Modal ── -->
@@ -832,7 +843,7 @@ setInterval(() => {
     showPanel('brief', null);
     generateBriefing();
     if ('Notification' in window && Notification.permission === 'granted')
-      new Notification('LexBrief', { body: 'Your daily legal briefing is ready.' });
+      new Notification('Lex.Almonds', { body: 'Your daily legal briefing is ready.' });
   });
 }, 30000);
 
@@ -1996,6 +2007,8 @@ const I18N = {
     'settings.add_time': '+ Add time',
     'settings.allow_notif': 'Allow notifications',
     'settings.footer_note': 'Changes take effect on the next renewal.',
+    'footer.terms': 'Terms of Use',
+    'footer.privacy': 'Privacy Policy',
     'settings.alarm_status_on': '✓ Auto-generates daily at {times}',
     'settings.alarm_status_off': 'No scheduled times — add one above',
     'topic.ip': 'IP & Technology',
@@ -2126,6 +2139,8 @@ const I18N = {
     'settings.add_time': '+ 시간 추가',
     'settings.allow_notif': '알림 허용',
     'settings.footer_note': '변경 사항은 다음 갱신부터 적용됩니다.',
+    'footer.terms': '이용약관',
+    'footer.privacy': '개인정보처리방침',
     'settings.alarm_status_on': '✓ 매일 {times}에 자동 생성',
     'settings.alarm_status_off': '예약된 시각 없음 — 위에서 추가해 주세요',
     'topic.ip': 'IP & 기술',
@@ -2256,6 +2271,8 @@ const I18N = {
     'settings.add_time': '+ Agregar hora',
     'settings.allow_notif': 'Permitir notificaciones',
     'settings.footer_note': 'Los cambios se aplican en la próxima renovación.',
+    'footer.terms': 'Términos de Uso',
+    'footer.privacy': 'Política de Privacidad',
     'settings.alarm_status_on': '✓ Se genera automáticamente cada día a las {times}',
     'settings.alarm_status_off': 'Sin horarios programados — agrega uno arriba',
     'topic.ip': 'PI y Tecnología',
@@ -2386,6 +2403,8 @@ const I18N = {
     'settings.add_time': '+ Ajouter une heure',
     'settings.allow_notif': 'Autoriser les notifications',
     'settings.footer_note': 'Les modifications prennent effet au prochain renouvellement.',
+    'footer.terms': "Conditions d'Utilisation",
+    'footer.privacy': 'Politique de Confidentialité',
     'settings.alarm_status_on': '✓ Génération automatique quotidienne à {times}',
     'settings.alarm_status_off': 'Aucun horaire programmé — ajoutez-en un ci-dessus',
     'topic.ip': 'PI et Technologie',
@@ -2516,6 +2535,8 @@ const I18N = {
     'settings.add_time': '+ 添加时间',
     'settings.allow_notif': '允许通知',
     'settings.footer_note': '更改将在下次刷新时生效。',
+    'footer.terms': '使用条款',
+    'footer.privacy': '隐私政策',
     'settings.alarm_status_on': '✓ 每天{times}自动生成',
     'settings.alarm_status_off': '尚未设置时间——请在上方添加',
     'topic.ip': '知识产权与科技',
@@ -2646,6 +2667,8 @@ const I18N = {
     'settings.add_time': '+ 時刻を追加',
     'settings.allow_notif': '通知を許可',
     'settings.footer_note': '変更は次回の更新時に反映されます。',
+    'footer.terms': '利用規約',
+    'footer.privacy': 'プライバシーポリシー',
     'settings.alarm_status_on': '✓ 毎日{times}に自動生成',
     'settings.alarm_status_off': 'スケジュールされた時刻はありません — 上で追加してください',
     'topic.ip': 'IP・テクノロジー',

@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: lexis-legal-intelligence
+    name: lex-almonds
     env: node
     buildCommand: npm install
     startCommand: npm start
