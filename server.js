@@ -332,10 +332,14 @@ const BRIEFING_TOPIC_LABELS = { ip: 'IP & Technology', reg: 'Regulatory & Compli
 const MAX_COMPANIES_FOR_RESEARCH = 5;
 
 async function attemptResearchCompanyIntel(apiKey, company, topicNames, sectors, timeoutMs) {
-  const system = `You are a legal intelligence analyst. Research ${company} to find realistic, well-sourced legal/regulatory opportunities and risks relevant to these topics: ${topicNames}.${sectors.length ? ` Business sectors: ${sectors.join(', ')}.` : ''}
+  const todayStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const system = `You are a legal intelligence analyst. Today is ${todayStr}. Research ${company} to find realistic, well-sourced legal/regulatory opportunities and risks relevant to these topics: ${topicNames}.${sectors.length ? ` Business sectors: ${sectors.join(', ')}.` : ''}
+Scope your research to developments from roughly the last 30 days only — this keeps the research fast and focused on what's actually current. Research in this priority order, and stop once you have enough for a solid answer rather than exhaustively covering all three:
+1. Recent court rulings or case law involving ${company} or directly affecting its industry.
+2. Recent regulatory or policy announcements/enforcement actions in the jurisdiction(s) ${company} operates in.
+3. What ${company} has recently and publicly disclosed to investors (10-K risk factors, earnings call commentary, investor day materials) that relates to #1 or #2 — compare its stated strategy against what's actually happening legally.
 First determine (use web_search if needed) which countries ${company} primarily operates in or is listed in — do not assume it is US-only. For each relevant jurisdiction, prioritize official, primary sources over blogs or unverified news: SEC EDGAR and CourtListener for US companies, EUR-Lex and European Commission announcements for the EU, Companies House and the FCA register for the UK, EDINET for Japan, DART for South Korea, or the equivalent official regulator/court/gazette for other countries.
-Also look at what ${company} has recently told investors — 10-K risk factors, annual report, earnings call commentary, investor day materials — and explicitly compare that against current legal/regulatory developments.
-Every item must be grounded in a specific source; if you cannot find credible evidence, omit it rather than inventing one.
+Every item must be grounded in a specific source; if you cannot find credible evidence from the last 30 days, omit it rather than inventing one or reaching further back in time.
 You MUST respond with ONLY the JSON object below and nothing else — no explanation, no markdown fences, no prose before or after it. If you find no grounded evidence for opportunities or risks, return that field as an empty array rather than writing an explanation: {"opportunities":[{"text":"1-2 sentences","source":"https://..."}],"risks":[{"text":"1-2 sentences","source":"https://..."}]}`;
 
   const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
@@ -528,13 +532,17 @@ Only include these topics: ${activeTopics.join(',')}.`;
 });
 
 async function attemptResearchCompareCompanyIntel(apiKey, company, ctx, activeTopicLabels, timeoutMs) {
-  const system = `You are a legal intelligence analyst specializing in competitive regulatory analysis for ${company}. Focus strictly on these legal topic areas: ${activeTopicLabels.length ? activeTopicLabels.join(', ') : 'general legal and regulatory matters'}.
+  const todayStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const system = `You are a legal intelligence analyst specializing in competitive regulatory analysis for ${company}. Today is ${todayStr}. Focus strictly on these legal topic areas: ${activeTopicLabels.length ? activeTopicLabels.join(', ') : 'general legal and regulatory matters'}.
+
+Scope your research to developments from roughly the last 30 days only — this keeps the research fast and focused on what's actually current. Research in this priority order, and stop once you have enough for a solid answer rather than exhaustively covering all three:
+1. Recent court rulings or case law involving ${company} or directly affecting its industry.
+2. Recent regulatory or policy announcements/enforcement actions in the jurisdiction(s) ${company} operates in.
+3. What ${company} has recently and publicly disclosed to investors (10-K risk factors, earnings call commentary, investor day materials) that relates to #1 or #2.
 
 This company may not operate primarily in the US. Before analyzing, determine (use web_search if needed) which countries ${company} primarily operates in and where it is listed/incorporated — do not assume US-only. For each relevant jurisdiction, prioritize official, primary sources: SEC EDGAR and CourtListener for US companies, EUR-Lex and European Commission announcements for the EU, Companies House and the FCA register for the UK, EDINET for Japan, DART for South Korea, or the equivalent official regulator/court/gazette for other countries. The context below includes some US-sourced data as a starting point — supplement it via web_search/web_fetch, and don't treat US sources as sufficient for a non-US company.
 
-Also look at what ${company} has recently told investors — 10-K risk factors, annual report, earnings call commentary, investor day materials — and compare that against current legal/regulatory developments.
-
-Every risk, advantage, and development must be grounded in a specific source; omit rather than invent.
+Every risk, advantage, and development must be grounded in a specific source from the last 30 days; omit rather than invent or reach further back in time.
 
 You MUST respond with ONLY the JSON object below and nothing else — no explanation, no markdown fences, no prose before or after it. If you find no grounded evidence for a field, return an empty array/string rather than writing an explanation: {"riskLevel":"High|Medium|Low","keyRisks":["specific risk 1","risk 2","risk 3"],"legalAdvantages":["advantage 1","advantage 2"],"recentDevelopments":["development 1","development 2"],"regulatoryExposure":"one sentence on main exposure","citations":["https://... real URL backing the above","https://..."]}`;
 
