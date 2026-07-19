@@ -626,29 +626,16 @@ body{font-family:Georgia,serif;background:var(--surface);color:var(--ink);min-he
         <div class="card-body">
           <p style="font-family:Arial,sans-serif;font-size:13px;color:var(--ink3);margin-bottom:12px" data-i18n="settings.news_sources_desc">Add legal news websites. The briefing engine references these sources.</p>
           <div class="url-input-row">
-            <input type="text" id="url-in" placeholder="https://law360.com …">
+            <input type="text" id="url-in" placeholder="https://natlawreview.com …">
             <button onclick="addUrl()" data-i18n="common.add">Add</button>
           </div>
           <div class="url-items" id="url-items">
-            <div class="url-item"><span>law360.com</span><button class="url-del" onclick="removeUrl(this,'law360.com')">×</button></div>
-            <div class="url-item"><span>courthousenews.com</span><button class="url-del" onclick="removeUrl(this,'courthousenews.com')">×</button></div>
+            <div class="url-item"><span>natlawreview.com</span><button class="url-del" onclick="removeUrl(this,'natlawreview.com')">×</button></div>
+            <div class="url-item"><span>complianceweek.com</span><button class="url-del" onclick="removeUrl(this,'complianceweek.com')">×</button></div>
+            <div class="url-item"><span>abajournal.com</span><button class="url-del" onclick="removeUrl(this,'abajournal.com')">×</button></div>
+            <div class="url-item"><span>jurist.org</span><button class="url-del" onclick="removeUrl(this,'jurist.org')">×</button></div>
+            <div class="url-item"><span>lawgazette.co.uk</span><button class="url-del" onclick="removeUrl(this,'lawgazette.co.uk')">×</button></div>
           </div>
-        </div>
-      </div>
-
-      <div class="card settings-collapsed" id="settings-card-schedule">
-        <div class="card-head settings-card-head" onclick="toggleSettingsCard('schedule')">
-          <span class="card-title">⏰ <span data-i18n="settings.archive_schedule">Archive Schedule</span> <span class="settings-count" id="settings-count-schedule"></span></span>
-          <span class="settings-chevron">▾</span>
-        </div>
-        <div class="card-body">
-          <p style="font-family:Arial,sans-serif;font-size:13px;color:var(--ink3);margin-bottom:14px" data-i18n="settings.archive_schedule_desc">Automatically generate and save a briefing at one or more times each day, using your current topics, sectors, and tracked companies above.</p>
-          <div id="alarm-times" style="display:flex;flex-direction:column;gap:8px"></div>
-          <div style="display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap">
-            <button class="btn-ghost" onclick="addAlarmTime()" data-i18n="settings.add_time">+ Add time</button>
-            <button class="btn-ghost" id="notif-btn" onclick="requestNotifPermission()">🔔 <span data-i18n="settings.allow_notif">Allow notifications</span></button>
-          </div>
-          <div id="alarm-status" style="font-family:Arial,sans-serif;font-size:12px;color:var(--ink3);margin-top:10px"></div>
         </div>
       </div>
 
@@ -688,7 +675,7 @@ body{font-family:Georgia,serif;background:var(--surface);color:var(--ink);min-he
 // Recommended legal news sources (verified against this app's feed-discovery
 // logic — see commit f9c0a89). Used both as the starting point for brand-new
 // profiles and as a one-time top-up for existing accounts in loadUserProfile().
-const DEFAULT_NEWS_SOURCES = ['natlawreview.com','complianceweek.com','abajournal.com','courthousenews.com','lawgazette.co.uk'];
+const DEFAULT_NEWS_SOURCES = ['natlawreview.com','complianceweek.com','abajournal.com','jurist.org','lawgazette.co.uk'];
 
 const S = {
   topics:    { ip:true, reg:true, lit:true, corp:true },
@@ -771,94 +758,6 @@ try { const sk = localStorage.getItem('lexbrief_keywords'); if (sk) { S.keywords
 try { const sc = localStorage.getItem('lexbrief_companies'); if (sc) { S.companies = JSON.parse(sc); renderCoChips(); } } catch {}
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ARCHIVE SCHEDULE (auto-generate a briefing at one or more times daily —
-// client-side best-effort, only fires while a browser tab is open at that
-// moment; replaces the old single-time Daily Alarm)
-// ─────────────────────────────────────────────────────────────────────────────
-const ALARM = { times: ['08:00'] };
-window.ALARM = ALARM; // exposes ALARM to the Firebase module script, same reason as window.S
-
-function loadAlarm() {
-  try {
-    const s = localStorage.getItem('lb_alarm');
-    if (s) {
-      const parsed = JSON.parse(s);
-      if (Array.isArray(parsed.times)) ALARM.times = parsed.times;
-    }
-  } catch(e) {}
-  renderAlarmTimes();
-  if ('Notification' in window && Notification.permission === 'granted')
-    document.getElementById('notif-btn').style.display = 'none';
-}
-
-function renderAlarmTimes() {
-  const el = document.getElementById('alarm-times');
-  el.innerHTML = ALARM.times.map((t, i) => `
-    <div style="display:flex;align-items:center;gap:10px">
-      <input type="time" value="${t}" onchange="updateAlarmTime(${i}, this.value)" style="font-size:14px;padding:7px 10px;border:1px solid var(--rule);border-radius:var(--radius);color:var(--ink);background:var(--white);font-family:Arial,sans-serif">
-      <button class="url-del" onclick="removeAlarmTime(${i})">×</button>
-    </div>`).join('');
-  updateAlarmStatus();
-  updateSettingsCounts();
-}
-
-function addAlarmTime() {
-  ALARM.times.push('08:00');
-  saveAlarm();
-}
-function updateAlarmTime(i, v) {
-  ALARM.times[i] = v;
-  saveAlarm();
-}
-function removeAlarmTime(i) {
-  ALARM.times.splice(i, 1);
-  saveAlarm();
-}
-
-function saveAlarm() {
-  try { localStorage.setItem('lb_alarm', JSON.stringify(ALARM)); } catch(e) {}
-  renderAlarmTimes();
-  syncUserProfile();
-}
-
-function updateAlarmStatus() {
-  const el = document.getElementById('alarm-status');
-  if (ALARM.times.length) {
-    const labels = ALARM.times.map(time => {
-      const [h,m] = time.split(':').map(Number);
-      return `${h%12||12}:${String(m).padStart(2,'0')} ${h>=12?'PM':'AM'}`;
-    });
-    el.textContent = t('settings.alarm_status_on', {times: labels.join(', ')});
-    el.style.color = 'var(--accent)';
-  } else {
-    el.textContent = t('settings.alarm_status_off');
-    el.style.color = 'var(--ink3)';
-  }
-}
-
-function requestNotifPermission() {
-  if ('Notification' in window)
-    Notification.requestPermission().then(p => {
-      if (p === 'granted') document.getElementById('notif-btn').style.display = 'none';
-    });
-}
-
-setInterval(() => {
-  const now = new Date();
-  ALARM.times.forEach(time => {
-    const [h,m] = time.split(':').map(Number);
-    if (now.getHours() !== h || now.getMinutes() !== m) return;
-    const key = `lb_alarm_fired_${now.toDateString()}_${time}`;
-    if (localStorage.getItem(key)) return;
-    localStorage.setItem(key, '1');
-    showPanel('brief', null);
-    generateBriefing();
-    if ('Notification' in window && Notification.permission === 'granted')
-      new Notification('Lex.Almonds', { body: 'Your daily legal briefing is ready.' });
-  });
-}, 30000);
-
-// ─────────────────────────────────────────────────────────────────────────────
 // NAVIGATION  — simple, reliable tab switching
 // ─────────────────────────────────────────────────────────────────────────────
 function showPanel(name, btn) {
@@ -922,9 +821,6 @@ function updateSettingsCounts() {
 
   const srcEl = document.getElementById('settings-count-sources');
   if (srcEl) srcEl.textContent = `(${S.urls.length})`;
-
-  const schedEl = document.getElementById('settings-count-schedule');
-  if (schedEl) schedEl.textContent = `(${ALARM.times.length})`;
 }
 window.toggleSettingsCard  = toggleSettingsCard;
 window.updateSettingsCounts = updateSettingsCounts;
@@ -1105,7 +1001,7 @@ async function generateBriefing(retries = 1) {
     catch(e) { throw new Error('AI returned malformed JSON — please try Renew again.'); }
 
     // Normalize bullets: resolve "ref" integer → real article URL
-    const fallbackUrls = S.urls.length ? S.urls : ['law360.com'];
+    const fallbackUrls = S.urls.length ? S.urls : DEFAULT_NEWS_SOURCES;
     parsed.sections.forEach(s => {
       s.bullets = (s.bullets || []).map((b, i) => {
         const text   = typeof b === 'string' ? b : (b.text || String(b));
@@ -1863,16 +1759,12 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeArticle
 function copy(t) { navigator.clipboard.writeText(t).catch(()=>{}); }
 function esc(s) { return (s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
 
-// Deferred to DOMContentLoaded: these indirectly call t() (updateAlarmStatus),
-// which is defined in the module script below. Module scripts finish executing
-// before DOMContentLoaded fires, so t() is guaranteed to exist by then.
 document.addEventListener('DOMContentLoaded', () => {
-  loadAlarm();
   renderTrendTopicPills();
   startBriefing();
-  // Sources & Topics accordion — must run after ALARM/settingsOpenState (both
-  // declared later in this same script) have been initialized; DOMContentLoaded
-  // guarantees the whole script already ran top-to-bottom by this point.
+  // Sources & Topics accordion — must run after settingsOpenState (declared later
+  // in this same script) has been initialized; DOMContentLoaded guarantees the
+  // whole script already ran top-to-bottom by this point.
   loadSettingsOpenState();
   updateSettingsCounts();
 });
@@ -2028,15 +1920,9 @@ const I18N = {
     'settings.company_ph': 'Company name (e.g. Apple, JPMorgan, Tesla…)',
     'settings.news_sources': 'News Sources',
     'settings.news_sources_desc': 'Add legal news websites. The briefing engine references these sources.',
-    'settings.archive_schedule': 'Archive Schedule',
-    'settings.archive_schedule_desc': 'Automatically generate and save a briefing at one or more times each day, using your current topics, sectors, and tracked companies above.',
-    'settings.add_time': '+ Add time',
-    'settings.allow_notif': 'Allow notifications',
     'settings.footer_note': 'Changes take effect on the next renewal.',
     'footer.terms': 'Terms of Use',
     'footer.privacy': 'Privacy Policy',
-    'settings.alarm_status_on': '✓ Auto-generates daily at {times}',
-    'settings.alarm_status_off': 'No scheduled times — add one above',
     'topic.ip': 'IP & Technology',
     'topic.reg': 'Regulatory & Compliance',
     'topic.lit': 'Litigation & Courts',
@@ -2160,15 +2046,9 @@ const I18N = {
     'settings.company_ph': '회사명 (예: Apple, JPMorgan, Tesla…)',
     'settings.news_sources': '뉴스 소스',
     'settings.news_sources_desc': '법률 뉴스 사이트를 추가하세요. 브리핑 엔진이 이 소스들을 참고합니다.',
-    'settings.archive_schedule': '아카이브 예약',
-    'settings.archive_schedule_desc': '위에서 설정한 토픽·업종·추적 회사를 기준으로, 하루 중 지정한 시각마다 브리핑을 자동으로 생성해 저장합니다.',
-    'settings.add_time': '+ 시간 추가',
-    'settings.allow_notif': '알림 허용',
     'settings.footer_note': '변경 사항은 다음 갱신부터 적용됩니다.',
     'footer.terms': '이용약관',
     'footer.privacy': '개인정보처리방침',
-    'settings.alarm_status_on': '✓ 매일 {times}에 자동 생성',
-    'settings.alarm_status_off': '예약된 시각 없음 — 위에서 추가해 주세요',
     'topic.ip': 'IP & 기술',
     'topic.reg': '규제 & 컴플라이언스',
     'topic.lit': '소송 & 법원',
@@ -2292,15 +2172,9 @@ const I18N = {
     'settings.company_ph': 'Nombre de empresa (ej. Apple, JPMorgan, Tesla…)',
     'settings.news_sources': 'Fuentes de Noticias',
     'settings.news_sources_desc': 'Agrega sitios de noticias legales. El motor de resúmenes hace referencia a estas fuentes.',
-    'settings.archive_schedule': 'Programación del Archivo',
-    'settings.archive_schedule_desc': 'Genera y guarda automáticamente un resumen a una o más horas cada día, usando tus temas, sectores y empresas seguidas actuales.',
-    'settings.add_time': '+ Agregar hora',
-    'settings.allow_notif': 'Permitir notificaciones',
     'settings.footer_note': 'Los cambios se aplican en la próxima renovación.',
     'footer.terms': 'Términos de Uso',
     'footer.privacy': 'Política de Privacidad',
-    'settings.alarm_status_on': '✓ Se genera automáticamente cada día a las {times}',
-    'settings.alarm_status_off': 'Sin horarios programados — agrega uno arriba',
     'topic.ip': 'PI y Tecnología',
     'topic.reg': 'Regulación y Cumplimiento',
     'topic.lit': 'Litigios y Tribunales',
@@ -2424,15 +2298,9 @@ const I18N = {
     'settings.company_ph': "Nom d'entreprise (ex. Apple, JPMorgan, Tesla…)",
     'settings.news_sources': "Sources d'Actualités",
     'settings.news_sources_desc': "Ajoutez des sites d'actualités juridiques. Le moteur de résumé s'appuie sur ces sources.",
-    'settings.archive_schedule': 'Planification des Archives',
-    'settings.archive_schedule_desc': "Génère et enregistre automatiquement un résumé à une ou plusieurs heures chaque jour, en utilisant vos sujets, secteurs et entreprises suivies actuels.",
-    'settings.add_time': '+ Ajouter une heure',
-    'settings.allow_notif': 'Autoriser les notifications',
     'settings.footer_note': 'Les modifications prennent effet au prochain renouvellement.',
     'footer.terms': "Conditions d'Utilisation",
     'footer.privacy': 'Politique de Confidentialité',
-    'settings.alarm_status_on': '✓ Génération automatique quotidienne à {times}',
-    'settings.alarm_status_off': 'Aucun horaire programmé — ajoutez-en un ci-dessus',
     'topic.ip': 'PI et Technologie',
     'topic.reg': 'Réglementation et Conformité',
     'topic.lit': 'Contentieux et Tribunaux',
@@ -2556,15 +2424,9 @@ const I18N = {
     'settings.company_ph': '公司名称(例如：Apple、JPMorgan、Tesla…)',
     'settings.news_sources': '新闻来源',
     'settings.news_sources_desc': '添加法律新闻网站。简报引擎会引用这些来源。',
-    'settings.archive_schedule': '归档计划',
-    'settings.archive_schedule_desc': '根据上方设置的主题、行业和追踪公司，在每天指定的一个或多个时间自动生成并保存简报。',
-    'settings.add_time': '+ 添加时间',
-    'settings.allow_notif': '允许通知',
     'settings.footer_note': '更改将在下次刷新时生效。',
     'footer.terms': '使用条款',
     'footer.privacy': '隐私政策',
-    'settings.alarm_status_on': '✓ 每天{times}自动生成',
-    'settings.alarm_status_off': '尚未设置时间——请在上方添加',
     'topic.ip': '知识产权与科技',
     'topic.reg': '监管与合规',
     'topic.lit': '诉讼与法院',
@@ -2688,15 +2550,9 @@ const I18N = {
     'settings.company_ph': '企業名(例：Apple、JPMorgan、Tesla…)',
     'settings.news_sources': 'ニュースソース',
     'settings.news_sources_desc': '法律ニュースサイトを追加してください。ブリーフィングエンジンがこれらのソースを参照します。',
-    'settings.archive_schedule': 'アーカイブスケジュール',
-    'settings.archive_schedule_desc': '上記の現在のトピック・業種・追跡企業を使って、毎日指定した1つ以上の時刻に自動でブリーフィングを生成・保存します。',
-    'settings.add_time': '+ 時刻を追加',
-    'settings.allow_notif': '通知を許可',
     'settings.footer_note': '変更は次回の更新時に反映されます。',
     'footer.terms': '利用規約',
     'footer.privacy': 'プライバシーポリシー',
-    'settings.alarm_status_on': '✓ 毎日{times}に自動生成',
-    'settings.alarm_status_off': 'スケジュールされた時刻はありません — 上で追加してください',
     'topic.ip': 'IP・テクノロジー',
     'topic.reg': '規制・コンプライアンス',
     'topic.lit': '訴訟・裁判所',
@@ -2815,7 +2671,6 @@ function applyLanguage(lang) {
   document.getElementById('app-lang-select').value  = currentLang;
   retranslate();
   window.renderTrendTopicPills && window.renderTrendTopicPills();
-  window.renderAlarmTimes && window.renderAlarmTimes();
   window.renderGateQuote && window.renderGateQuote();
 }
 window.applyLanguage = applyLanguage;
@@ -2896,7 +2751,6 @@ async function loadUserProfile(nick) {
     if (Array.isArray(p.keywords))  { window.S.keywords  = p.keywords;  window.renderKwChips(); }
     if (Array.isArray(p.companies)) { window.S.companies = p.companies; window.renderCoChips(); }
     if (p.trendConfig) { window.S.trendConfig = p.trendConfig; window.renderTrendTopicPills(); }
-    if (Array.isArray(p.archiveSchedule)) { window.ALARM.times = p.archiveSchedule; window.renderAlarmTimes(); }
     if (p.lang && p.lang !== currentLang) { applyLanguage(p.lang); try { localStorage.setItem(LANG_KEY, p.lang); } catch {} }
   } catch (e) { /* keep local defaults if the profile fetch fails */ }
 }
@@ -2909,7 +2763,7 @@ async function syncUserProfile() {
       urls: window.S.urls, topics: window.S.topics, sectors: window.S.sectors,
       keywords: window.S.keywords, companies: window.S.companies,
       lang: currentLang, trendConfig: window.S.trendConfig,
-      archiveSchedule: window.ALARM.times, updatedAt: serverTimestamp()
+      updatedAt: serverTimestamp()
     }, { merge: true });
   } catch (e) { /* best-effort — settings still work locally via localStorage */ }
 }
@@ -2949,14 +2803,12 @@ function resetLocalSettingsToDefaults() {
   window.S.sectors   = {};
   window.S.keywords  = [];
   window.S.companies = [];
-  window.ALARM.times = ['08:00'];
   try {
     localStorage.removeItem('lexbrief_urls');
     localStorage.removeItem('lexbrief_topics');
     localStorage.removeItem('lexbrief_sectors');
     localStorage.removeItem('lexbrief_keywords');
     localStorage.removeItem('lexbrief_companies');
-    localStorage.removeItem('lb_alarm');
   } catch {}
   document.getElementById('url-items').innerHTML = window.S.urls.map(v =>
     `<div class="url-item"><span>${escHtml(v)}</span><button class="url-del" onclick="removeUrl(this,'${escHtml(v)}')">×</button></div>`
@@ -2965,7 +2817,6 @@ function resetLocalSettingsToDefaults() {
   document.querySelectorAll('.topic-pill[data-sector]').forEach(el => el.classList.add('off'));
   window.renderKwChips();
   window.renderCoChips();
-  window.renderAlarmTimes();
 }
 
 function timeAgo(ts) {

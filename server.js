@@ -331,53 +331,76 @@ const BRIEFING_TOPIC_LABELS = { ip: 'IP & Technology', reg: 'Regulatory & Compli
 // of concurrent Sonnet 5 + web_search/web_fetch calls in one request.
 const MAX_COMPANIES_FOR_RESEARCH = 5;
 
-// Researches ONE company's jurisdiction-aware legal opportunities/risks via Sonnet 5
-// + web_search/web_fetch. Scoped to a single company so it completes fast enough to
-// run in parallel with sibling calls — a live test that researched 2 companies in one
-// combined call took 280s+ and still didn't finish. Returns null on any failure so one
-// company's research failing doesn't take down the whole briefing/comparison.
-async function researchCompanyIntel(apiKey, company, topicNames, sectors) {
+async function attemptResearchCompanyIntel(apiKey, company, topicNames, sectors, timeoutMs) {
   const system = `You are a legal intelligence analyst. Research ${company} to find realistic, well-sourced legal/regulatory opportunities and risks relevant to these topics: ${topicNames}.${sectors.length ? ` Business sectors: ${sectors.join(', ')}.` : ''}
 First determine (use web_search if needed) which countries ${company} primarily operates in or is listed in — do not assume it is US-only. For each relevant jurisdiction, prioritize official, primary sources over blogs or unverified news: SEC EDGAR and CourtListener for US companies, EUR-Lex and European Commission announcements for the EU, Companies House and the FCA register for the UK, EDINET for Japan, DART for South Korea, or the equivalent official regulator/court/gazette for other countries.
 Also look at what ${company} has recently told investors — 10-K risk factors, annual report, earnings call commentary, investor day materials — and explicitly compare that against current legal/regulatory developments.
 Every item must be grounded in a specific source; if you cannot find credible evidence, omit it rather than inventing one.
 You MUST respond with ONLY the JSON object below and nothing else — no explanation, no markdown fences, no prose before or after it. If you find no grounded evidence for opportunities or risks, return that field as an empty array rather than writing an explanation: {"opportunities":[{"text":"1-2 sentences","source":"https://..."}],"risks":[{"text":"1-2 sentences","source":"https://..."}]}`;
 
+  const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-5',
+      max_tokens: 10000,
+      thinking: { type: 'adaptive' },
+      output_config: { effort: 'medium' },
+      tools: [
+        { type: 'web_search_20260209', name: 'web_search', max_uses: 4 },
+        { type: 'web_fetch_20260209', name: 'web_fetch', max_uses: 4 }
+      ],
+      system,
+      messages: [{ role: 'user', content: `Research ${company}. Respond with ONLY the JSON object — no prose.` }]
+    }),
+    signal: AbortSignal.timeout(timeoutMs)
+  });
+  if (!claudeRes.ok) {
+    const errBody = await claudeRes.text().catch(() => '');
+    console.error(`researchCompanyIntel HTTP ${claudeRes.status} for ${company}:`, errBody);
+    return { company, error: `HTTP ${claudeRes.status}: ${errBody.slice(0, 300)}` };
+  }
+  const data = await claudeRes.json();
+  const text = (data.content || []).map(b => b.text || '').join('').trim();
+  const m = text.match(/\{[\s\S]*\}/);
+  if (!m) {
+    console.error(`researchCompanyIntel no-JSON for ${company} (stop_reason: ${data.stop_reason}):`, text.slice(0, 500));
+    return { company, error: `No JSON found (stop_reason: ${data.stop_reason}): ${text.slice(0, 200)}` };
+  }
+  const parsed = JSON.parse(m[0]);
+  return { company, opportunities: parsed.opportunities || [], risks: parsed.risks || [] };
+}
+
+// Researches ONE company's jurisdiction-aware legal opportunities/risks via Sonnet 5
+// + web_search/web_fetch. Scoped to a single company so it completes fast enough to
+// run in parallel with sibling calls — a live test that researched 2 companies in one
+// combined call took 280s+ and still didn't finish. On failure (timeout or bad
+// response), retries once with a shorter 100s budget — live testing showed some
+// companies fail intermittently while siblings in the same request succeed, so a
+// single retry meaningfully improves completion without reverting to a slower
+// single-call design. The retry uses a shorter timeout than the first attempt so one
+// stubborn company can't push the whole request's wall-clock time much past ~300s.
+// Returns {company, error} rather than null even after both attempts fail, so the
+// caller can surface why (never silently drops a company with no explanation).
+async function researchCompanyIntel(apiKey, company, topicNames, sectors) {
   try {
-    const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-5',
-        max_tokens: 10000,
-        thinking: { type: 'adaptive' },
-        output_config: { effort: 'medium' },
-        tools: [
-          { type: 'web_search_20260209', name: 'web_search', max_uses: 4 },
-          { type: 'web_fetch_20260209', name: 'web_fetch', max_uses: 4 }
-        ],
-        system,
-        messages: [{ role: 'user', content: `Research ${company}. Respond with ONLY the JSON object — no prose.` }]
-      }),
-      signal: AbortSignal.timeout(200000)
-    });
-    if (!claudeRes.ok) {
-      const errBody = await claudeRes.text().catch(() => '');
-      console.error(`researchCompanyIntel HTTP ${claudeRes.status} for ${company}:`, errBody);
-      return { company, error: `HTTP ${claudeRes.status}: ${errBody.slice(0, 300)}` };
+    const first = await attemptResearchCompanyIntel(apiKey, company, topicNames, sectors, 200000);
+    if (!first.error) return first;
+    console.error(`researchCompanyIntel retrying ${company} after: ${first.error}`);
+    try {
+      return await attemptResearchCompanyIntel(apiKey, company, topicNames, sectors, 100000);
+    } catch (e2) {
+      console.error(`researchCompanyIntel retry failed for ${company}:`, e2.message);
+      return { company, error: `${first.error} (retry: ${e2.message})` };
     }
-    const data = await claudeRes.json();
-    const text = (data.content || []).map(b => b.text || '').join('').trim();
-    const m = text.match(/\{[\s\S]*\}/);
-    if (!m) {
-      console.error(`researchCompanyIntel no-JSON for ${company} (stop_reason: ${data.stop_reason}):`, text.slice(0, 500));
-      return { company, error: `No JSON found (stop_reason: ${data.stop_reason}): ${text.slice(0, 200)}` };
-    }
-    const parsed = JSON.parse(m[0]);
-    return { company, opportunities: parsed.opportunities || [], risks: parsed.risks || [] };
   } catch (e) {
     console.error(`researchCompanyIntel failed for ${company}:`, e.message);
-    return { company, error: e.message };
+    try {
+      return await attemptResearchCompanyIntel(apiKey, company, topicNames, sectors, 100000);
+    } catch (e2) {
+      console.error(`researchCompanyIntel retry failed for ${company}:`, e2.message);
+      return { company, error: `${e.message} (retry: ${e2.message})` };
+    }
   }
 }
 
@@ -412,8 +435,8 @@ app.post('/api/generate-briefing', async (req, res) => {
   const hasCompanies = companies.length > 0;
   const researchCompanies = companies.slice(0, MAX_COMPANIES_FOR_RESEARCH);
 
-  let bizInstr = ` For each section include a "biz" array of 1-2 opportunities and 1-2 risks directly tied to that section's legal developments.`;
-  if (sectors.length) bizInstr += ` Business sectors: ${sectors.join(', ')}.`;
+  let bizInstr = ` For each section include a "biz" array of 1-2 opportunities and 1-2 risks directly tied to THIS SECTION's own legal developments — not a generic business summary.`;
+  if (sectors.length) bizInstr += ` The user tracks these business sectors: ${sectors.join(', ')}. Only tag a biz item with one of these sectors if this section's legal development genuinely and specifically affects that sector — do not force-fit an unrelated sector onto unrelated legal news just because it's in the tracked list. Leave "sector" empty if none of the tracked sectors are actually relevant to this section.`;
   bizInstr += ` Each biz item: {type:"opportunity"|"risk",company:"",sector:"name or empty",text:"1-2 sentences"}. Do not name specific tracked companies in this array — verified, sourced company-specific intelligence is generated separately.`;
 
   let articleCtx = '';
@@ -504,11 +527,7 @@ Only include these topics: ${activeTopics.join(',')}.`;
   res.json({ content: [{ type: 'text', text: JSON.stringify(merged) }] });
 });
 
-// Researches ONE company's competitive legal position (risks, advantages, developments,
-// citations) via Sonnet 5 + web_search/web_fetch, scoped to just that company so it can
-// run in parallel with sibling companies rather than one combined multi-company call
-// that serializes all the tool-use round trips (which timed out at 280s+ in testing).
-async function researchCompareCompanyIntel(apiKey, company, ctx, activeTopicLabels) {
+async function attemptResearchCompareCompanyIntel(apiKey, company, ctx, activeTopicLabels, timeoutMs) {
   const system = `You are a legal intelligence analyst specializing in competitive regulatory analysis for ${company}. Focus strictly on these legal topic areas: ${activeTopicLabels.length ? activeTopicLabels.join(', ') : 'general legal and regulatory matters'}.
 
 This company may not operate primarily in the US. Before analyzing, determine (use web_search if needed) which countries ${company} primarily operates in and where it is listed/incorporated — do not assume US-only. For each relevant jurisdiction, prioritize official, primary sources: SEC EDGAR and CourtListener for US companies, EUR-Lex and European Commission announcements for the EU, Companies House and the FCA register for the UK, EDINET for Japan, DART for South Korea, or the equivalent official regulator/court/gazette for other countries. The context below includes some US-sourced data as a starting point — supplement it via web_search/web_fetch, and don't treat US sources as sufficient for a non-US company.
@@ -519,38 +538,57 @@ Every risk, advantage, and development must be grounded in a specific source; om
 
 You MUST respond with ONLY the JSON object below and nothing else — no explanation, no markdown fences, no prose before or after it. If you find no grounded evidence for a field, return an empty array/string rather than writing an explanation: {"riskLevel":"High|Medium|Low","keyRisks":["specific risk 1","risk 2","risk 3"],"legalAdvantages":["advantage 1","advantage 2"],"recentDevelopments":["development 1","development 2"],"regulatoryExposure":"one sentence on main exposure","citations":["https://... real URL backing the above","https://..."]}`;
 
+  const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-5',
+      max_tokens: 10000,
+      thinking: { type: 'adaptive' },
+      output_config: { effort: 'medium' },
+      tools: [
+        { type: 'web_search_20260209', name: 'web_search', max_uses: 4 },
+        { type: 'web_fetch_20260209', name: 'web_fetch', max_uses: 4 }
+      ],
+      system,
+      messages: [{ role: 'user', content: ctx + '\n\nRespond with ONLY the JSON object — no prose.' }]
+    }),
+    signal: AbortSignal.timeout(timeoutMs)
+  });
+  if (!claudeRes.ok) {
+    console.error(`researchCompareCompanyIntel HTTP ${claudeRes.status} for ${company}:`, await claudeRes.text().catch(() => ''));
+    return null;
+  }
+  const data = await claudeRes.json();
+  const text = (data.content || []).map(b => b.text || '').join('').trim();
+  const m = text.match(/\{[\s\S]*\}/);
+  if (!m) {
+    console.error(`researchCompareCompanyIntel no-JSON for ${company} (stop_reason: ${data.stop_reason}):`, text.slice(0, 500));
+    return null;
+  }
+  return { company, data: JSON.parse(m[0]) };
+}
+
+// Researches ONE company's competitive legal position (risks, advantages, developments,
+// citations) via Sonnet 5 + web_search/web_fetch, scoped to just that company so it can
+// run in parallel with sibling companies rather than one combined multi-company call
+// that serializes all the tool-use round trips (which timed out at 280s+ in testing).
+// Retries once with a shorter 100s budget on failure — live testing showed some
+// companies (e.g. Ford, Agilent) fail intermittently while others (Toyota) succeed
+// reliably in the same request; a single retry meaningfully improves the odds both
+// companies end up with data without reverting to the slower single-call design.
+async function researchCompareCompanyIntel(apiKey, company, ctx, activeTopicLabels) {
   try {
-    const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-5',
-        max_tokens: 10000,
-        thinking: { type: 'adaptive' },
-        output_config: { effort: 'medium' },
-        tools: [
-          { type: 'web_search_20260209', name: 'web_search', max_uses: 4 },
-          { type: 'web_fetch_20260209', name: 'web_fetch', max_uses: 4 }
-        ],
-        system,
-        messages: [{ role: 'user', content: ctx + '\n\nRespond with ONLY the JSON object — no prose.' }]
-      }),
-      signal: AbortSignal.timeout(200000)
-    });
-    if (!claudeRes.ok) {
-      console.error(`researchCompareCompanyIntel HTTP ${claudeRes.status} for ${company}:`, await claudeRes.text().catch(() => ''));
-      return null;
-    }
-    const data = await claudeRes.json();
-    const text = (data.content || []).map(b => b.text || '').join('').trim();
-    const m = text.match(/\{[\s\S]*\}/);
-    if (!m) {
-      console.error(`researchCompareCompanyIntel no-JSON for ${company} (stop_reason: ${data.stop_reason}):`, text.slice(0, 500));
-      return null;
-    }
-    return { company, data: JSON.parse(m[0]) };
+    const first = await attemptResearchCompareCompanyIntel(apiKey, company, ctx, activeTopicLabels, 200000);
+    if (first) return first;
+    console.error(`researchCompareCompanyIntel retrying ${company} after a failed first attempt`);
   } catch (e) {
     console.error(`researchCompareCompanyIntel failed for ${company}:`, e.message);
+  }
+  try {
+    return await attemptResearchCompareCompanyIntel(apiKey, company, ctx, activeTopicLabels, 100000);
+  } catch (e) {
+    console.error(`researchCompareCompanyIntel retry failed for ${company}:`, e.message);
     return null;
   }
 }
