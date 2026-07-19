@@ -334,7 +334,7 @@ const MAX_COMPANIES_FOR_RESEARCH = 5;
 async function attemptResearchCompanyIntel(apiKey, company, topicNames, sectors, timeoutMs) {
   const todayStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const system = `You are a legal intelligence analyst. Today is ${todayStr}. Research ${company} to find realistic, well-sourced legal/regulatory opportunities and risks relevant to these topics: ${topicNames}.${sectors.length ? ` Business sectors: ${sectors.join(', ')}.` : ''}
-Scope your research to developments from roughly the last 30 days only — this keeps the research fast and focused on what's actually current. Aim to finish your research quickly (roughly a minute and a half of searching, not more) by being efficient rather than exhaustive. Research in this priority order, and stop as soon as you have enough for a solid answer rather than covering all four exhaustively:
+Scope your research to developments from roughly the last 30 days only — this keeps the research focused on what's actually current, not a speed constraint. Thoroughness matters more than speed here — research all four of these areas properly rather than stopping early:
 1. Recent court rulings or case law involving ${company} or directly affecting its industry.
 2. Recent M&A activity — pending or completed acquisitions, mergers, or divestitures — and any related regulatory/antitrust review.
 3. Recent regulatory or policy announcements/enforcement actions in the jurisdiction(s) ${company} operates in.
@@ -348,12 +348,12 @@ You MUST respond with ONLY the JSON object below and nothing else — no explana
     headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
     body: JSON.stringify({
       model: 'claude-sonnet-5',
-      max_tokens: 10000,
+      max_tokens: 16000,
       thinking: { type: 'adaptive' },
-      output_config: { effort: 'medium' },
+      output_config: { effort: 'high' },
       tools: [
-        { type: 'web_search_20260209', name: 'web_search', max_uses: 3 },
-        { type: 'web_fetch_20260209', name: 'web_fetch', max_uses: 3 }
+        { type: 'web_search_20260209', name: 'web_search', max_uses: 4 },
+        { type: 'web_fetch_20260209', name: 'web_fetch', max_uses: 4 }
       ],
       system,
       messages: [{ role: 'user', content: `Research ${company}. Respond with ONLY the JSON object — no prose.` }]
@@ -536,7 +536,7 @@ async function attemptResearchCompareCompanyIntel(apiKey, company, ctx, activeTo
   const todayStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const system = `You are a legal intelligence analyst specializing in competitive regulatory analysis for ${company}. Today is ${todayStr}. Focus strictly on these legal topic areas: ${activeTopicLabels.length ? activeTopicLabels.join(', ') : 'general legal and regulatory matters'}.
 
-Scope your research to developments from roughly the last 30 days only — this keeps the research fast and focused on what's actually current. Aim to finish your research quickly (roughly a minute and a half of searching, not more) by being efficient rather than exhaustive. Research in this priority order, and stop as soon as you have enough for a solid answer rather than covering all four exhaustively:
+Scope your research to developments from roughly the last 30 days only — this keeps the research focused on what's actually current, not a speed constraint. Thoroughness matters more than speed here — research all four of these areas properly rather than stopping early:
 1. Recent court rulings or case law involving ${company} or directly affecting its industry.
 2. Recent M&A activity — pending or completed acquisitions, mergers, or divestitures — and any related regulatory/antitrust review.
 3. Recent regulatory or policy announcements/enforcement actions in the jurisdiction(s) ${company} operates in.
@@ -553,12 +553,12 @@ You MUST respond with ONLY the JSON object below and nothing else — no explana
     headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
     body: JSON.stringify({
       model: 'claude-sonnet-5',
-      max_tokens: 10000,
+      max_tokens: 16000,
       thinking: { type: 'adaptive' },
-      output_config: { effort: 'medium' },
+      output_config: { effort: 'high' },
       tools: [
-        { type: 'web_search_20260209', name: 'web_search', max_uses: 3 },
-        { type: 'web_fetch_20260209', name: 'web_fetch', max_uses: 3 }
+        { type: 'web_search_20260209', name: 'web_search', max_uses: 4 },
+        { type: 'web_fetch_20260209', name: 'web_fetch', max_uses: 4 }
       ],
       system,
       messages: [{ role: 'user', content: ctx + '\n\nRespond with ONLY the JSON object — no prose.' }]
