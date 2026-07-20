@@ -487,10 +487,14 @@ Only include these topics: ${activeTopics.join(',')}.`;
       const sectionsData = await sectionsRes.json();
       const sectionsText = (sectionsData.content || []).map(b => b.text || '').join('').trim();
       const sm = sectionsText.match(/\{[\s\S]*\}/);
-      if (!sm) return { ok: false, error: { message: 'Sections generation returned no usable content.' } };
+      if (!sm) {
+        console.error(`generate-briefing sections no-JSON (stop_reason: ${sectionsData.stop_reason}):`, sectionsText.slice(0, 800));
+        return { ok: false, error: { message: 'Sections generation returned no usable content.' } };
+      }
       try {
         return { ok: true, data: JSON.parse(sm[0]) };
-      } catch {
+      } catch (e) {
+        console.error(`generate-briefing sections malformed JSON (stop_reason: ${sectionsData.stop_reason}, parse error: ${e.message}):`, sm[0].slice(0, 1500));
         return { ok: false, error: { message: 'Sections generation returned malformed JSON.' } };
       }
     } catch (e) {
