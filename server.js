@@ -349,7 +349,7 @@ You MUST respond with ONLY the JSON object below and nothing else — no explana
       model: 'claude-sonnet-5',
       max_tokens: 10000,
       thinking: { type: 'adaptive' },
-      output_config: { effort: 'medium' },
+      output_config: { effort: 'low' },
       tools: [
         { type: 'web_search_20260209', name: 'web_search', max_uses: 4 },
         { type: 'web_fetch_20260209', name: 'web_fetch', max_uses: 4 }
@@ -557,7 +557,7 @@ You MUST respond with ONLY the JSON object below and nothing else — no explana
       model: 'claude-sonnet-5',
       max_tokens: 10000,
       thinking: { type: 'adaptive' },
-      output_config: { effort: 'medium' },
+      output_config: { effort: 'low' },
       tools: [
         { type: 'web_search_20260209', name: 'web_search', max_uses: 4 },
         { type: 'web_fetch_20260209', name: 'web_fetch', max_uses: 4 }
